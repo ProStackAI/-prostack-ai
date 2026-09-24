@@ -6,9 +6,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 import time
 
-import streamlit as st
-import pandas as pd
-import numpy as np
+
+# --- 1. EXTREMELY ULTRA PAGE SETUP ---
+st.set_page_config(page_title="ProStack AI - GOD MODE", page_icon="⚡", layout="wide", initial_sidebar_state="expanded")
 
 # --- ULTRA VIBE MODE: Hide all web elements ---
 hide_st_style = """
@@ -21,10 +21,6 @@ hide_st_style = """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # ... (iske niche aapka baaki ka app ka code) ...
-
-
-# --- 1. EXTREMELY ULTRA PAGE SETUP ---
-st.set_page_config(page_title="ProStack AI - GOD MODE", page_icon="⚡", layout="wide", initial_sidebar_state="expanded")
 
 # Hacker/Terminal Premium CSS
 st.markdown("""
