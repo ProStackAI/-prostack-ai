@@ -133,7 +133,7 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode):
 
 st.divider()
 
-# --- 4. PREMIUM GOD-MODE UI NAVIGATION (ENGINE FIRST NOW!) ---
+# --- 4. PREMIUM GOD-MODE UI NAVIGATION (ENGINE FIRST) ---
 st.markdown("### 🧭 Step 2: Navigation Menu")
 app_mode = st.selectbox(
     "Choose your section:",
@@ -183,22 +183,24 @@ if app_mode == "🚀 Auto-Pilot Engine":
             df_out.index = [f"A-{i+1}" for i in range(len(df_out))]
             st.dataframe(df_out, use_container_width=True)
             
-            # Download CSV Button Added here for easy export
             csv = df_out.to_csv().encode('utf-8')
             st.download_button("💾 DOWNLOAD MASTER CSV", csv, "ProStack_Lineups.csv", "text/csv", use_container_width=True)
         else:
             st.error("Engine Overload: Salary cap constraint failed.")
 
 elif app_mode == "📊 The Terminal (Player Data)":
-    st.subheader("Mobile-Optimized Matrix")
+    st.subheader("Deep-Dive Player Matrix")
+    st.markdown("<span style='color:#A0AEC0; font-size:12px;'>*(Swipe left/right on the table to see full data)*</span>", unsafe_allow_html=True)
     
-    mobile_df = df[['Player', 'Pos', 'Salary', 'Proj_Pts', 'Ownership_%']].copy()
-    if 'Proj_Pts' in mobile_df.columns:
-        mobile_df['Proj_Pts'] = mobile_df['Proj_Pts'].round(1)
-    if 'Ownership_%' in mobile_df.columns:
-        mobile_df['Ownership_%'] = mobile_df['Ownership_%'].round(1)
+    # ALL COLUMNS BACK IN ACTION (No trimming)
+    full_df = df.copy()
+    if 'Proj_Pts' in full_df.columns:
+        full_df['Proj_Pts'] = full_df['Proj_Pts'].round(1)
+    if 'Ownership_%' in full_df.columns:
+        full_df['Ownership_%'] = full_df['Ownership_%'].round(1)
     
-    st.dataframe(mobile_df.style.background_gradient(subset=['Proj_Pts'], cmap='Greens')
+    # Internal sliding allowed via use_container_width=True
+    st.dataframe(full_df.style.background_gradient(subset=['Proj_Pts'], cmap='Greens')
                  .background_gradient(subset=['Ownership_%'], cmap='Reds'), 
                  use_container_width=True, hide_index=True)
 
