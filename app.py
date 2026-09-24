@@ -7,7 +7,7 @@ import time
 # --- 1. EXTREMELY ULTRA PAGE SETUP ---
 st.set_page_config(page_title="ProStack AI - GOD MODE", page_icon="⚡", layout="wide", initial_sidebar_state="collapsed")
 
-# --- ULTRA VIBE CSS (ABSOLUTE NUCLEAR TEXT COLOR FIX) ---
+# --- ULTRA VIBE CSS (FINAL WHITE-BOX FIX) ---
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -15,36 +15,46 @@ hide_st_style = """
             header {visibility: hidden;}
             [data-testid="stSidebar"] {display: none;}
             
-            /* 🔥 FORCE EVERY SINGLE TEXT ELEMENT TO WHITE 🔥 */
-            /* General text, markdown, and labels */
-            .stApp p, .stApp label, .stApp span, .stApp div[data-testid="stMarkdownContainer"] p {
+            /* General text, markdown, and labels to White */
+            .stApp p, .stApp label, .stApp div[data-testid="stMarkdownContainer"] p {
                 color: #FFFFFF !important;
             }
             
-            /* Specific fix for Radio Buttons ("Head-to-Head", "Mega Grand League") */
+            /* Radio Buttons to White */
             div[role="radiogroup"] p, div[data-baseweb="radio"] p {
                 color: #FFFFFF !important;
                 font-size: 16px !important;
                 font-weight: bold !important;
             }
             
-            /* Selectbox, Slider, and Number Input text */
+            /* Input Labels to White */
             .stSelectbox label p, .stSlider label p, .stNumberInput label p, .stFileUploader label p {
                 color: #FFFFFF !important;
             }
             
-            /* Values inside sliders and dropdowns */
-            div[data-baseweb="select"] span, div[data-baseweb="slider"] div {
-                color: #FFFFFF !important;
-            }
-            
-            /* Make headings Neon Green */
+            /* Headings to Neon Green */
             h1, h2, h3, h4, h5, h6 {
                 color: #00FF41 !important;
             }
             
-            /* Input box text typing color */
-            input {
+            /* 🔴 THE FIX FOR WHITE BOXES (Dropdown & File Uploader) 🔴 */
+            /* Make Dropdown text Black */
+            div[data-baseweb="select"] span {
+                color: #000000 !important;
+                font-weight: bold !important;
+            }
+            /* Make File Uploader inner text and button Black */
+            div[data-testid="stFileUploaderDropzone"] * {
+                color: #000000 !important;
+                font-weight: bold !important;
+            }
+            div[data-testid="stFileUploaderDropzone"] button {
+                border-color: #00FF41 !important;
+                color: #000000 !important;
+            }
+            
+            /* Fix Slider number visibility */
+            div[data-baseweb="slider"] div {
                 color: #FFFFFF !important;
             }
             </style>
