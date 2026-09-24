@@ -16,11 +16,13 @@ hide_st_style = """
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
             header {visibility: hidden;}
+            /* Tabs ko hide karne aur buttons ko premium banane ka CSS */
+            div.row-widget.stRadio > div{flex-direction:row; justify-content: space-between; flex-wrap: wrap;}
+            div.row-widget.stRadio > div > label{background-color: #1A202C; padding: 10px 15px; border-radius: 5px; border: 1px solid #00FF41; cursor: pointer; flex-grow: 1; text-align: center; margin: 5px;}
+            div.row-widget.stRadio > div > label:hover{background-color: #00FF41; color: #0E1117 !important;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
-
-# ... (iske niche aapka baaki ka app ka code) ...
 
 # Hacker/Terminal Premium CSS
 st.markdown("""
@@ -55,7 +57,6 @@ with st.sidebar:
 # --- 3. GOD-MODE DATA GENERATOR ---
 @st.cache_data
 def load_god_data():
-    # Including Vegas Odds, Ownership, and Weather for the Ultra Look
     return pd.DataFrame({
         "ID": range(1, 11),
         "Player": ["P. Mahomes", "J. Allen", "C. McCaffrey", "A. Ekeler", "T. Hill", "J. Jefferson", "T. Kelce", "S. Diggs", "C. Kupp", "A. Brown"],
@@ -87,16 +88,22 @@ col3.markdown(f'<div class="metric-box"><b>Highest Ownership (Chalk)</b><br><spa
 col4.markdown(f'<div class="metric-box"><b>Engine Status</b><br><span style="font-size:24px; color:#00FF41;">READY FOR MASS ENTRY</span></div>', unsafe_allow_html=True)
 st.write("")
 
-# --- 5. TABS FOR EXTREME ANALYSIS ---
-tab1, tab2, tab3 = st.tabs(["📊 The Terminal (Data)", "📉 Visual Analytics (Charts)", "🚀 Generate & Export"])
+# --- 5. PREMIUM GOD-MODE UI NAVIGATION (REPLACED TABS) ---
+app_mode = st.radio(
+    "Nav",
+    ["📊 The Terminal (Data)", "📉 Visual Analytics (Charts)", "🚀 Generate & Export"],
+    horizontal=True,
+    label_visibility="collapsed"
+)
+st.divider()
 
-with tab1:
+if app_mode == "📊 The Terminal (Data)":
     st.subheader("Deep-Dive Player Matrix")
     st.dataframe(df.style.background_gradient(subset=['Proj_Pts', 'Vegas_Total'], cmap='Greens')
                  .background_gradient(subset=['Ownership_%'], cmap='Reds'), 
                  use_container_width=True, hide_index=True)
 
-with tab2:
+elif app_mode == "📉 Visual Analytics (Charts)":
     st.subheader("Pro Leverage & Risk Analytics")
     chart_col1, chart_col2 = st.columns(2)
     
@@ -114,7 +121,7 @@ with tab2:
                       title="Public Exposure (Ownership Risk)")
         st.plotly_chart(fig2, use_container_width=True)
 
-# --- 6. THE CORE SOLVER ENGINE ---
+# --- 6. THE CORE SOLVER ENGINE (UNTOUCHED) ---
 def run_god_mode_solver(data, lineups_count, cap):
     lineups, stats = [], []
     for i in range(lineups_count):
@@ -146,8 +153,8 @@ def run_god_mode_solver(data, lineups_count, cap):
             break
     return lineups, stats
 
-# --- 7. EXECUTION ---
-with tab3:
+# --- 7. EXECUTION (MERGED INTO RADIO UI) ---
+elif app_mode == "🚀 Generate & Export":
     st.markdown("### Initialize Extreme Mass Multi-Entry")
     
     if st.button("🔥 RUN 10,000 MONTE CARLO SIMULATIONS & OPTIMIZE", type="primary", use_container_width=True):
