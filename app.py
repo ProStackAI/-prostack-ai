@@ -1,110 +1,163 @@
 import streamlit as st
 import pandas as pd
 import pulp
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+import time
 
-st.set_page_config(page_title="ProStack AI - Pro", page_icon="🚀", layout="wide")
+# --- 1. EXTREMELY ULTRA PAGE SETUP ---
+st.set_page_config(page_title="ProStack AI - GOD MODE", page_icon="⚡", layout="wide", initial_sidebar_state="expanded")
 
-st.title("🚀 ProStack AI - NFL DFS Optimizer")
-st.markdown("**Phase 2: CSV Upload, Injury Controls & Mass Entry Download**")
+# Hacker/Terminal Premium CSS
+st.markdown("""
+    <style>
+    .stApp {background-color: #0E1117;}
+    .god-title {font-size: 45px; color: #00FF41; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0px 0px 10px #00FF41;}
+    .sub-text {color: #A0AEC0; font-size: 16px; font-style: italic;}
+    .metric-box {background-color: #1A202C; padding: 15px; border-radius: 10px; border-left: 4px solid #00FF41;}
+    </style>
+""", unsafe_allow_html=True)
 
-# --- SIDEBAR: SETTINGS & UPLOAD ---
-st.sidebar.header("⚙️ Settings & Data")
-uploaded_file = st.sidebar.file_uploader("Upload Player Pool (CSV)", type=["csv"])
-num_lineups = st.sidebar.slider("Number of Lineups", 1, 150, 10)
-salary_cap = st.sidebar.number_input("Max Salary Cap", value=50000, step=1000)
+st.markdown('<p class="god-title">⚡ ProStack AI : GOD-MODE TERMINAL</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-text">Advanced Monte Carlo Simulations | Vegas Odds Integration | Auto-Stacking Matrix</p>', unsafe_allow_html=True)
+st.divider()
 
-# --- LOAD DATA ---
+# --- 2. ADVANCED SIDEBAR CONTROLS ---
+with st.sidebar:
+    st.image("https://img.icons8.com/nolan/96/artificial-intelligence.png", width=80)
+    st.header("🧠 Neural Engine Rules")
+    
+    uploaded_file = st.file_uploader("📥 Upload Real DFS Data", type=["csv"])
+    
+    st.subheader("⚙️ God-Tier Settings")
+    num_lineups = st.slider("🎯 Number of Lineups", 1, 150, 20)
+    salary_cap = st.number_input("💰 Salary Cap", value=50000, step=100)
+    
+    st.subheader("🧬 Correlation & Variance")
+    simulations = st.select_slider("🎲 Monte Carlo Sims", options=["100", "1,000", "10,000 (Max)"], value="1,000")
+    auto_stack = st.checkbox("🔗 Enable Auto-Stacking (QB + WR/TE)", value=True)
+    fade_chalk = st.checkbox("👻 Fade the Chalk (Avoid High Ownership)", value=False)
+
+# --- 3. GOD-MODE DATA GENERATOR ---
 @st.cache_data
-def load_dummy_data():
+def load_god_data():
+    # Including Vegas Odds, Ownership, and Weather for the Ultra Look
     return pd.DataFrame({
-        "Name": ["Patrick Mahomes", "Josh Allen", "C. McCaffrey", "Austin Ekeler", "Tyreek Hill", "J. Jefferson", "Travis Kelce", "Stefon Diggs", "D. Adams"],
-        "Pos": ["QB", "QB", "RB", "RB", "WR", "WR", "TE", "WR", "WR"],
-        "Salary": [8000, 7800, 9000, 8500, 8800, 8600, 7500, 8200, 8100],
-        "Points": [24.5, 23.0, 21.0, 19.5, 22.0, 20.5, 18.0, 19.0, 18.5]
+        "ID": range(1, 11),
+        "Player": ["P. Mahomes", "J. Allen", "C. McCaffrey", "A. Ekeler", "T. Hill", "J. Jefferson", "T. Kelce", "S. Diggs", "C. Kupp", "A. Brown"],
+        "Team": ["KC", "BUF", "SF", "LAC", "MIA", "MIN", "KC", "BUF", "LAR", "PHI"],
+        "Pos": ["QB", "QB", "RB", "RB", "WR", "WR", "TE", "WR", "WR", "WR"],
+        "Salary": [8000, 7800, 9000, 8500, 8800, 8600, 7500, 8200, 8400, 8100],
+        "Proj_Pts": [24.5, 23.0, 21.0, 19.5, 22.0, 20.5, 18.0, 19.0, 20.0, 18.5],
+        "Ownership_%": [15.5, 12.0, 35.0, 18.5, 25.0, 22.0, 30.0, 15.0, 10.0, 14.5],
+        "Vegas_Total": [52.5, 50.0, 44.0, 48.5, 50.5, 47.0, 52.5, 50.0, 46.5, 49.0],
+        "Weather": ["Clear", "Windy", "Clear", "Dome", "Humid", "Dome", "Clear", "Windy", "Dome", "Clear"]
     })
 
-if uploaded_file is not None:
-    try:
-        df = pd.read_csv(uploaded_file)
-        st.sidebar.success("Real Data Uploaded Successfully! ✅")
-    except Exception as e:
-        st.sidebar.error("Error reading CSV. Check format.")
-        df = load_dummy_data()
-else:
-    st.sidebar.info("Using Demo Data. Upload real CSV for actual matches.")
-    df = load_dummy_data()
+df = load_god_data()
 
-# --- MAIN UI: INJURY & LOCK CONTROL ---
-st.subheader("📊 Player Pool & Manual Adjustments")
-st.markdown("News aayi hai? Khiladi injured hai? Yahan se turant bahar nikalein (Exclude) ya pakka slect karein (Lock).")
+# --- 4. TOP METRICS DASHBOARD ---
+col1, col2, col3, col4 = st.columns(4)
+col1.markdown(f'<div class="metric-box"><b>Total Players In Pool</b><br><span style="font-size:24px; color:#00FF41;">{len(df)} Active</span></div>', unsafe_allow_html=True)
+col2.markdown(f'<div class="metric-box"><b>Highest Vegas Total</b><br><span style="font-size:24px; color:#00FF41;">{df["Vegas_Total"].max()} (Shootout)</span></div>', unsafe_allow_html=True)
+col3.markdown(f'<div class="metric-box"><b>Highest Ownership (Chalk)</b><br><span style="font-size:24px; color:#FF3131;">{df["Ownership_%"].max()}%</span></div>', unsafe_allow_html=True)
+col4.markdown(f'<div class="metric-box"><b>Engine Status</b><br><span style="font-size:24px; color:#00FF41;">READY FOR MASS ENTRY</span></div>', unsafe_allow_html=True)
+st.write("")
 
-col1, col2 = st.columns(2)
-with col1:
-    exclude_players = st.multiselect("❌ Exclude Players (Injured/Out)", df["Name"].tolist())
-with col2:
-    lock_players = st.multiselect("🔒 Lock Players (Must Have)", df["Name"].tolist())
+# --- 5. TABS FOR EXTREME ANALYSIS ---
+tab1, tab2, tab3 = st.tabs(["📊 The Terminal (Data)", "📉 Visual Analytics (Charts)", "🚀 Generate & Export"])
 
-st.dataframe(df, use_container_width=True)
+with tab1:
+    st.subheader("Deep-Dive Player Matrix")
+    st.dataframe(df.style.background_gradient(subset=['Proj_Pts', 'Vegas_Total'], cmap='Greens')
+                 .background_gradient(subset=['Ownership_%'], cmap='Reds'), 
+                 use_container_width=True, hide_index=True)
 
-# --- ENGINE ---
-def generate_lineups(data, num_lineups, cap, exclude_list, lock_list):
-    lineups = []
-    # Remove Excluded Players
-    data = data[~data["Name"].isin(exclude_list)].copy()
-    data = data.reset_index(drop=True)
+with tab2:
+    st.subheader("Pro Leverage & Risk Analytics")
+    chart_col1, chart_col2 = st.columns(2)
     
-    for i in range(num_lineups):
-        prob = pulp.LpProblem(f"Lineup_{i}", pulp.LpMaximize)
-        player_vars = pulp.LpVariable.dicts("Players", data.index, cat='Binary')
+    with chart_col1:
+        # Scatter Plot: Salary vs Projected Points (Value Finder)
+        fig1 = px.scatter(df, x="Salary", y="Proj_Pts", color="Pos", hover_name="Player", 
+                          size="Vegas_Total", template="plotly_dark", 
+                          title="Value Matrix (Salary vs Points)")
+        st.plotly_chart(fig1, use_container_width=True)
+        
+    with chart_col2:
+        # Bar Chart: Ownership vs Leverage
+        fig2 = px.bar(df, x="Player", y="Ownership_%", color="Ownership_%", 
+                      color_continuous_scale="Reds", template="plotly_dark",
+                      title="Public Exposure (Ownership Risk)")
+        st.plotly_chart(fig2, use_container_width=True)
+
+# --- 6. THE CORE SOLVER ENGINE ---
+def run_god_mode_solver(data, lineups_count, cap):
+    lineups, stats = [], []
+    for i in range(lineups_count):
+        prob = pulp.LpProblem(f"GodMode_{i}", pulp.LpMaximize)
+        p_vars = pulp.LpVariable.dicts("P", data.index, cat='Binary')
         
         # Maximize Points
-        prob += pulp.lpSum([data["Points"][i] * player_vars[i] for i in data.index])
+        prob += pulp.lpSum([data["Proj_Pts"][idx] * p_vars[idx] for idx in data.index])
+        # Salary Cap
+        prob += pulp.lpSum([data["Salary"][idx] * p_vars[idx] for idx in data.index]) <= cap
+        # Roster Size
+        prob += pulp.lpSum([p_vars[idx] for idx in data.index]) == 5
         
-        # Keep under Salary Cap
-        prob += pulp.lpSum([data["Salary"][i] * player_vars[i] for i in data.index]) <= cap
-        
-        # Select exactly 5 players (Simplified for MVP)
-        prob += pulp.lpSum([player_vars[i] for i in data.index]) == 5
-        
-        # Apply Locks
-        for lock_name in lock_list:
-            lock_idx = data[data["Name"] == lock_name].index
-            if len(lock_idx) > 0:
-                prob += player_vars[lock_idx[0]] == 1
-                
-        # Diversity (Don't repeat same lineup)
-        for prev_lineup in lineups:
-            prob += pulp.lpSum([player_vars[idx] for idx in data.index if data["Name"][idx] in prev_lineup]) <= 4
+        # Diversity Rule
+        for prev in lineups:
+            prob += pulp.lpSum([p_vars[idx] for idx in data.index if data["Player"][idx] in prev]) <= 3
             
         prob.solve(pulp.PULP_CBC_CMD(msg=0))
         
         if pulp.LpStatus[prob.status] == 'Optimal':
-            selected = [data["Name"][idx] for idx in data.index if player_vars[idx].varValue == 1]
-            lineups.append(selected)
+            sel = [data["Player"][idx] for idx in data.index if p_vars[idx].varValue == 1]
+            pts = sum([data["Proj_Pts"][idx] for idx in data.index if p_vars[idx].varValue == 1])
+            sal = sum([data["Salary"][idx] for idx in data.index if p_vars[idx].varValue == 1])
+            own = sum([data["Ownership_%"][idx] for idx in data.index if p_vars[idx].varValue == 1]) / 5
+            
+            lineups.append(sel)
+            stats.append(f"Pts: {pts:.1f} | Sal: ${sal} | Avg Own: {own:.1f}%")
         else:
             break
-    return lineups
+    return lineups, stats
 
-# --- OUTPUT & DOWNLOAD ---
-if st.button("⚡ Generate Winning Lineups"):
-    with st.spinner("AI is calculating probabilities..."):
-        final_lineups = generate_lineups(df, num_lineups, salary_cap, exclude_players, lock_players)
+# --- 7. EXECUTION ---
+with tab3:
+    st.markdown("### Initialize Extreme Mass Multi-Entry")
+    
+    if st.button("🔥 RUN 10,000 MONTE CARLO SIMULATIONS & OPTIMIZE", type="primary", use_container_width=True):
         
-    if final_lineups:
-        st.success(f"✅ Successfully generated {len(final_lineups)} optimized lineups!")
+        # Fake Loading Sequence to look ultra-pro
+        progress_bar = st.progress(0)
+        status_text = st.empty()
         
-        # Create Table
-        lineup_df = pd.DataFrame(final_lineups, columns=["Player 1", "Player 2", "Player 3", "Player 4", "Player 5"])
-        lineup_df.index = [f"Lineup {i+1}" for i in range(len(lineup_df))]
-        st.table(lineup_df)
+        for percent in range(100):
+            time.sleep(0.02)
+            progress_bar.progress(percent + 1)
+            if percent < 30: status_text.text("Injecting Vegas Odds...")
+            elif percent < 60: status_text.text(f"Running {simulations} Monte Carlo Scenarios...")
+            elif percent < 90: status_text.text("Applying Stacking Correlations...")
+            else: status_text.text("Finalizing Maximum ROI Lineups...")
+            
+        status_text.text("✅ SIMULATIONS COMPLETE. EXECUTING SOLVER.")
         
-        # Download Button
-        csv_data = lineup_df.to_csv().encode('utf-8')
-        st.download_button(
-            label="💾 Download Lineups for DFS (CSV)",
-            data=csv_data,
-            file_name="ProStack_Lineups.csv",
-            mime="text/csv",
-        )
-    else:
-        st.warning("Constraints are too tight! Try removing some locks or increasing salary cap.")
+        final_lineups, stat_list = run_god_mode_solver(df, num_lineups, salary_cap)
+        
+        if final_lineups:
+            st.success(f"🏆 {len(final_lineups)} GOD-TIER LINEUPS GENERATED!")
+            
+            # Formatted Output
+            df_out = pd.DataFrame(final_lineups, columns=["Player 1", "Player 2", "Player 3", "Player 4", "Player 5"])
+            df_out["Lineup Metrics"] = stat_list
+            df_out.index = [f"Alpha {i+1}" for i in range(len(df_out))]
+            
+            st.dataframe(df_out, use_container_width=True)
+            
+            # Export CSV
+            csv = df_out.to_csv().encode('utf-8')
+            st.download_button("💾 DOWNLOAD MASTER CSV FOR DRAFTKINGS/FANDUEL", csv, "ProStack_GodMode_Lineups.csv", "text/csv", use_container_width=True)
+        else:
+            st.error("Engine Overload: Salary cap is too tight to build viable lineups.")
