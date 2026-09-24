@@ -1,2 +1,4 @@
 pandas
 pulp
+numpy
+plotly
