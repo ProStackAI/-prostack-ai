@@ -55,7 +55,16 @@ def load_god_data():
         "Weather": ["Clear", "Windy", "Clear", "Dome", "Humid", "Dome", "Clear", "Windy", "Dome", "Clear"]
     })
 
-df = load_god_data()
+if uploaded_file is not None:
+    try:
+        df = pd.read_csv(uploaded_file)
+        st.sidebar.success("✅ Real DFS Data Active!")
+    except Exception as e:
+        st.sidebar.error("⚠️ Error reading CSV!")
+        df = load_god_data()
+else:
+    df = load_god_data()
+    
 
 # --- 4. TOP METRICS DASHBOARD ---
 col1, col2, col3, col4 = st.columns(4)
