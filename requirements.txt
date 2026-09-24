@@ -2,3 +2,5 @@ pandas
 pulp
 numpy
 plotly
+matplotlib
+jinja2
