@@ -15,7 +15,7 @@ hide_st_style = """
             header {visibility: hidden;}
             [data-testid="stSidebar"] {display: none;}
             
-            /* General text, markdown, and labels to White */
+            /* General text to White */
             .stApp p, .stApp label, .stApp div[data-testid="stMarkdownContainer"] p {
                 color: #FFFFFF !important;
             }
@@ -37,13 +37,11 @@ hide_st_style = """
                 color: #00FF41 !important;
             }
             
-            /* 🔴 THE FIX FOR WHITE BOXES (Dropdown & File Uploader) 🔴 */
-            /* Make Dropdown text Black */
+            /* 🔴 WHITE BOX FIX 🔴 */
             div[data-baseweb="select"] span {
                 color: #000000 !important;
                 font-weight: bold !important;
             }
-            /* Make File Uploader inner text and button Black */
             div[data-testid="stFileUploaderDropzone"] * {
                 color: #000000 !important;
                 font-weight: bold !important;
@@ -53,7 +51,6 @@ hide_st_style = """
                 color: #000000 !important;
             }
             
-            /* Fix Slider number visibility */
             div[data-baseweb="slider"] div {
                 color: #FFFFFF !important;
             }
@@ -136,44 +133,16 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode):
 
 st.divider()
 
-# --- 4. PREMIUM GOD-MODE UI NAVIGATION (BULLETPROOF DROPDOWN) ---
+# --- 4. PREMIUM GOD-MODE UI NAVIGATION (ENGINE FIRST NOW!) ---
 st.markdown("### 🧭 Step 2: Navigation Menu")
 app_mode = st.selectbox(
     "Choose your section:",
-    ["📊 The Terminal (Player Data)", "📰 Live Match News", "📉 Pro Analytics", "🚀 Auto-Pilot Engine"],
+    ["🚀 Auto-Pilot Engine", "📊 The Terminal (Player Data)", "📰 Live Match News", "📉 Pro Analytics"],
     label_visibility="collapsed"
 )
 st.divider()
 
-if app_mode == "📊 The Terminal (Player Data)":
-    st.subheader("Mobile-Optimized Matrix")
-    
-    mobile_df = df[['Player', 'Pos', 'Salary', 'Proj_Pts', 'Ownership_%']].copy()
-    if 'Proj_Pts' in mobile_df.columns:
-        mobile_df['Proj_Pts'] = mobile_df['Proj_Pts'].round(1)
-    if 'Ownership_%' in mobile_df.columns:
-        mobile_df['Ownership_%'] = mobile_df['Ownership_%'].round(1)
-    
-    st.dataframe(mobile_df.style.background_gradient(subset=['Proj_Pts'], cmap='Greens')
-                 .background_gradient(subset=['Ownership_%'], cmap='Reds'), 
-                 use_container_width=True, hide_index=True)
-
-elif app_mode == "📰 Live Match News":
-    st.subheader("🚨 Live Match & Injury Updates")
-    st.markdown("""
-    <div class='news-box-red'>
-        <b style='color:#FF3131; font-size:16px;'>⚠️ INJURY REPORT</b><br>
-        <span style='color:white;'>• <b>C. Kupp (WR)</b> - Questionable<br>
-        • <b>A. Ekeler (RB)</b> - OUT (Hamstring)</span><br>
-    </div>
-    """, unsafe_allow_html=True)
-
-elif app_mode == "📉 Pro Analytics":
-    st.subheader("Pro Leverage & Risk")
-    fig1 = px.scatter(df, x="Salary", y="Proj_Pts", color="Pos", hover_name="Player", template="plotly_dark", title="Value Matrix")
-    st.plotly_chart(fig1, use_container_width=True)
-
-elif app_mode == "🚀 Auto-Pilot Engine":
+if app_mode == "🚀 Auto-Pilot Engine":
     st.markdown("### 🧠 Engine Settings")
     
     st.markdown("""
@@ -213,5 +182,37 @@ elif app_mode == "🚀 Auto-Pilot Engine":
             df_out["Metrics"] = stat_list
             df_out.index = [f"A-{i+1}" for i in range(len(df_out))]
             st.dataframe(df_out, use_container_width=True)
+            
+            # Download CSV Button Added here for easy export
+            csv = df_out.to_csv().encode('utf-8')
+            st.download_button("💾 DOWNLOAD MASTER CSV", csv, "ProStack_Lineups.csv", "text/csv", use_container_width=True)
         else:
             st.error("Engine Overload: Salary cap constraint failed.")
+
+elif app_mode == "📊 The Terminal (Player Data)":
+    st.subheader("Mobile-Optimized Matrix")
+    
+    mobile_df = df[['Player', 'Pos', 'Salary', 'Proj_Pts', 'Ownership_%']].copy()
+    if 'Proj_Pts' in mobile_df.columns:
+        mobile_df['Proj_Pts'] = mobile_df['Proj_Pts'].round(1)
+    if 'Ownership_%' in mobile_df.columns:
+        mobile_df['Ownership_%'] = mobile_df['Ownership_%'].round(1)
+    
+    st.dataframe(mobile_df.style.background_gradient(subset=['Proj_Pts'], cmap='Greens')
+                 .background_gradient(subset=['Ownership_%'], cmap='Reds'), 
+                 use_container_width=True, hide_index=True)
+
+elif app_mode == "📰 Live Match News":
+    st.subheader("🚨 Live Match & Injury Updates")
+    st.markdown("""
+    <div class='news-box-red'>
+        <b style='color:#FF3131; font-size:16px;'>⚠️ INJURY REPORT</b><br>
+        <span style='color:white;'>• <b>C. Kupp (WR)</b> - Questionable<br>
+        • <b>A. Ekeler (RB)</b> - OUT (Hamstring)</span><br>
+    </div>
+    """, unsafe_allow_html=True)
+
+elif app_mode == "📉 Pro Analytics":
+    st.subheader("Pro Leverage & Risk")
+    fig1 = px.scatter(df, x="Salary", y="Proj_Pts", color="Pos", hover_name="Player", template="plotly_dark", title="Value Matrix")
+    st.plotly_chart(fig1, use_container_width=True)
