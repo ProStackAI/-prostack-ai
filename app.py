@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
 import pulp
-import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
 import time
 
 
@@ -79,8 +77,39 @@ if uploaded_file is not None:
 else:
     df = load_god_data()
     
+# --- 4. THE CORE SOLVER ENGINE (MOVED UP FOR FIX) ---
+def run_god_mode_solver(data, lineups_count, cap):
+    lineups, stats = [], []
+    for i in range(lineups_count):
+        prob = pulp.LpProblem(f"GodMode_{i}", pulp.LpMaximize)
+        p_vars = pulp.LpVariable.dicts("P", data.index, cat='Binary')
+        
+        # Maximize Points
+        prob += pulp.lpSum([data["Proj_Pts"][idx] * p_vars[idx] for idx in data.index])
+        # Salary Cap
+        prob += pulp.lpSum([data["Salary"][idx] * p_vars[idx] for idx in data.index]) <= cap
+        # Roster Size
+        prob += pulp.lpSum([p_vars[idx] for idx in data.index]) == 5
+        
+        # Diversity Rule
+        for prev in lineups:
+            prob += pulp.lpSum([p_vars[idx] for idx in data.index if data["Player"][idx] in prev]) <= 3
+            
+        prob.solve(pulp.PULP_CBC_CMD(msg=0))
+        
+        if pulp.LpStatus[prob.status] == 'Optimal':
+            sel = [data["Player"][idx] for idx in data.index if p_vars[idx].varValue == 1]
+            pts = sum([data["Proj_Pts"][idx] for idx in data.index if p_vars[idx].varValue == 1])
+            sal = sum([data["Salary"][idx] for idx in data.index if p_vars[idx].varValue == 1])
+            own = sum([data["Ownership_%"][idx] for idx in data.index if p_vars[idx].varValue == 1]) / 5
+            
+            lineups.append(sel)
+            stats.append(f"Pts: {pts:.1f} | Sal: ${sal} | Avg Own: {own:.1f}%")
+        else:
+            break
+    return lineups, stats
 
-# --- 4. TOP METRICS DASHBOARD ---
+# --- 5. TOP METRICS DASHBOARD ---
 col1, col2, col3, col4 = st.columns(4)
 col1.markdown(f'<div class="metric-box"><b>Total Players In Pool</b><br><span style="font-size:24px; color:#00FF41;">{len(df)} Active</span></div>', unsafe_allow_html=True)
 col2.markdown(f'<div class="metric-box"><b>Highest Vegas Total</b><br><span style="font-size:24px; color:#00FF41;">{df["Vegas_Total"].max()} (Shootout)</span></div>', unsafe_allow_html=True)
@@ -88,7 +117,7 @@ col3.markdown(f'<div class="metric-box"><b>Highest Ownership (Chalk)</b><br><spa
 col4.markdown(f'<div class="metric-box"><b>Engine Status</b><br><span style="font-size:24px; color:#00FF41;">READY FOR MASS ENTRY</span></div>', unsafe_allow_html=True)
 st.write("")
 
-# --- 5. PREMIUM GOD-MODE UI NAVIGATION (REPLACED TABS) ---
+# --- 6. PREMIUM GOD-MODE UI NAVIGATION ---
 app_mode = st.radio(
     "Nav",
     ["📊 The Terminal (Data)", "📉 Visual Analytics (Charts)", "🚀 Generate & Export"],
@@ -121,39 +150,6 @@ elif app_mode == "📉 Visual Analytics (Charts)":
                       title="Public Exposure (Ownership Risk)")
         st.plotly_chart(fig2, use_container_width=True)
 
-# --- 6. THE CORE SOLVER ENGINE (UNTOUCHED) ---
-def run_god_mode_solver(data, lineups_count, cap):
-    lineups, stats = [], []
-    for i in range(lineups_count):
-        prob = pulp.LpProblem(f"GodMode_{i}", pulp.LpMaximize)
-        p_vars = pulp.LpVariable.dicts("P", data.index, cat='Binary')
-        
-        # Maximize Points
-        prob += pulp.lpSum([data["Proj_Pts"][idx] * p_vars[idx] for idx in data.index])
-        # Salary Cap
-        prob += pulp.lpSum([data["Salary"][idx] * p_vars[idx] for idx in data.index]) <= cap
-        # Roster Size
-        prob += pulp.lpSum([p_vars[idx] for idx in data.index]) == 5
-        
-        # Diversity Rule
-        for prev in lineups:
-            prob += pulp.lpSum([p_vars[idx] for idx in data.index if data["Player"][idx] in prev]) <= 3
-            
-        prob.solve(pulp.PULP_CBC_CMD(msg=0))
-        
-        if pulp.LpStatus[prob.status] == 'Optimal':
-            sel = [data["Player"][idx] for idx in data.index if p_vars[idx].varValue == 1]
-            pts = sum([data["Proj_Pts"][idx] for idx in data.index if p_vars[idx].varValue == 1])
-            sal = sum([data["Salary"][idx] for idx in data.index if p_vars[idx].varValue == 1])
-            own = sum([data["Ownership_%"][idx] for idx in data.index if p_vars[idx].varValue == 1]) / 5
-            
-            lineups.append(sel)
-            stats.append(f"Pts: {pts:.1f} | Sal: ${sal} | Avg Own: {own:.1f}%")
-        else:
-            break
-    return lineups, stats
-
-# --- 7. EXECUTION (MERGED INTO RADIO UI) ---
 elif app_mode == "🚀 Generate & Export":
     st.markdown("### Initialize Extreme Mass Multi-Entry")
     
