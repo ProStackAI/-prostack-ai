@@ -7,28 +7,13 @@ import time
 # --- 1. EXTREMELY ULTRA PAGE SETUP ---
 st.set_page_config(page_title="ProStack AI - GOD MODE", page_icon="⚡", layout="wide", initial_sidebar_state="collapsed")
 
-# --- ULTRA VIBE CSS (COLOR FIX & SIDEBAR KILLER) ---
+# --- ULTRA VIBE CSS (SIDEBAR KILLER ONLY) ---
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
             header {visibility: hidden;}
-            
             [data-testid="stSidebar"] {display: none;}
-            
-            div.row-widget.stRadio > div{flex-direction:row; justify-content: space-between; flex-wrap: wrap;}
-            div.row-widget.stRadio > div > label{
-                background-color: #1A202C !important; 
-                padding: 10px; border-radius: 5px; border: 1px solid #00FF41 !important; 
-                cursor: pointer; flex-grow: 1; text-align: center; margin: 3px;
-            }
-            div.row-widget.stRadio > div > label p {
-                color: #FFFFFF !important; 
-                font-weight: bold !important;
-                font-size: 13px !important;
-            }
-            div.row-widget.stRadio > div > label:hover{background-color: #00FF41 !important;}
-            div.row-widget.stRadio > div > label:hover p{color: #0E1117 !important;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
@@ -60,8 +45,7 @@ def load_god_data():
         "Salary": [8000, 7800, 9000, 8500, 8800, 8600, 7500, 8200, 8400, 8100],
         "Proj_Pts": [24.5, 23.0, 21.0, 19.5, 22.0, 20.5, 18.0, 19.0, 20.0, 18.5],
         "Ownership_%": [15.5, 12.0, 35.0, 18.5, 25.0, 22.0, 30.0, 15.0, 10.0, 14.5],
-        "Vegas_Total": [52.5, 50.0, 44.0, 48.5, 50.5, 47.0, 52.5, 50.0, 46.5, 49.0],
-        "Weather": ["Clear", "Windy", "Clear", "Dome", "Humid", "Dome", "Clear", "Windy", "Dome", "Clear"]
+        "Vegas_Total": [52.5, 50.0, 44.0, 48.5, 50.5, 47.0, 52.5, 50.0, 46.5, 49.0]
     })
 
 df = load_god_data()
@@ -73,21 +57,13 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode):
         prob = pulp.LpProblem(f"GodMode_{i}", pulp.LpMaximize)
         p_vars = pulp.LpVariable.dicts("P", data.index, cat='Binary')
         
-        # Core Objective: Maximize Projected Points
         prob += pulp.lpSum([data["Proj_Pts"][idx] * p_vars[idx] for idx in data.index])
-        
-        # Constraint 1: Salary Cap
         prob += pulp.lpSum([data["Salary"][idx] * p_vars[idx] for idx in data.index]) <= cap
-        
-        # Constraint 2: Exact 5 Players
         prob += pulp.lpSum([p_vars[idx] for idx in data.index]) == 5
         
-        # Constraint 3: AUTO-PILOT STRATEGY LOGIC
         if strategy_mode == "💣 Mega Grand League (High Risk/Reward)":
-            # GRAND LEAGUE MODE: Force total lineup ownership under 80% to ensure contrarian/unique plays
             prob += pulp.lpSum([data["Ownership_%"][idx] * p_vars[idx] for idx in data.index]) <= 80
         
-        # Diversity Rule: Don't repeat the exact same lineup
         for prev in lineups:
             prob += pulp.lpSum([p_vars[idx] for idx in data.index if data["Player"][idx] in prev]) <= 3
             
@@ -98,7 +74,6 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode):
             pts = sum([data["Proj_Pts"][idx] for idx in data.index if p_vars[idx].varValue == 1])
             sal = sum([data["Salary"][idx] for idx in data.index if p_vars[idx].varValue == 1])
             own = sum([data["Ownership_%"][idx] for idx in data.index if p_vars[idx].varValue == 1]) / 5
-            
             lineups.append(sel)
             stats.append(f"Pts: {pts:.1f} | Sal: ${sal} | Avg Own: {own:.1f}%")
         else:
@@ -108,25 +83,30 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode):
 # --- 4. TOP METRICS DASHBOARD ---
 col1, col2 = st.columns(2)
 col1.markdown(f'<div class="metric-box"><b>Total Pool</b><br><span style="font-size:18px; color:#00FF41;">{len(df)} Active</span></div>', unsafe_allow_html=True)
-col2.markdown(f'<div class="metric-box"><b>Max Vegas</b><br><span style="font-size:18px; color:#00FF41;">{df["Vegas_Total"].max()} Total</span></div>', unsafe_allow_html=True)
+col2.markdown(f'<div class="metric-box"><b>Max Vegas</b><br><span style="font-size:18px; color:#00FF41;">{df["Vegas_Total"].max()}</span></div>', unsafe_allow_html=True)
 
-# --- 5. PREMIUM GOD-MODE UI NAVIGATION ---
-app_mode = st.radio(
-    "Nav",
-    ["📊 Terminal", "📰 Match News", "📉 Analytics", "🚀 Engine"],
-    horizontal=True,
+# --- 5. PREMIUM GOD-MODE UI NAVIGATION (BULLETPROOF DROPDOWN) ---
+st.markdown("### 🧭 Navigation Menu")
+app_mode = st.selectbox(
+    "Choose your section:",
+    ["📊 The Terminal (Player Data)", "📰 Live Match News", "📉 Pro Analytics", "🚀 Auto-Pilot Engine"],
     label_visibility="collapsed"
 )
 st.divider()
 
-if app_mode == "📊 Terminal":
+if app_mode == "📊 The Terminal (Player Data)":
     st.subheader("Mobile-Optimized Matrix")
-    mobile_df = df[['Player', 'Pos', 'Salary', 'Proj_Pts', 'Ownership_%']]
+    
+    # SLIDE FIX: Removing the extra zeros (e.g. 24.500000 -> 24.5) to shrink the table size!
+    mobile_df = df[['Player', 'Pos', 'Salary', 'Proj_Pts', 'Ownership_%']].copy()
+    mobile_df['Proj_Pts'] = mobile_df['Proj_Pts'].round(1)
+    mobile_df['Ownership_%'] = mobile_df['Ownership_%'].round(1)
+    
     st.dataframe(mobile_df.style.background_gradient(subset=['Proj_Pts'], cmap='Greens')
                  .background_gradient(subset=['Ownership_%'], cmap='Reds'), 
                  use_container_width=True, hide_index=True)
 
-elif app_mode == "📰 Match News":
+elif app_mode == "📰 Live Match News":
     st.subheader("🚨 Live Match & Injury Updates")
     st.markdown("""
     <div class='news-box-red'>
@@ -136,13 +116,13 @@ elif app_mode == "📰 Match News":
     </div>
     """, unsafe_allow_html=True)
 
-elif app_mode == "📉 Analytics":
+elif app_mode == "📉 Pro Analytics":
     st.subheader("Pro Leverage & Risk")
     fig1 = px.scatter(df, x="Salary", y="Proj_Pts", color="Pos", hover_name="Player", template="plotly_dark", title="Value Matrix")
     st.plotly_chart(fig1, use_container_width=True)
 
-elif app_mode == "🚀 Engine":
-    st.markdown("### 🧠 Auto-Pilot Engine Settings")
+elif app_mode == "🚀 Auto-Pilot Engine":
+    st.markdown("### 🧠 Engine Settings")
     
     st.markdown("""
     <div class='strategy-box'>
@@ -158,8 +138,8 @@ elif app_mode == "🚀 Engine":
     ])
     
     st.write("")
-    num_lineups = st.slider("🎯 Number of Lineups to Generate", 1, 150, 20)
-    salary_cap = st.number_input("💰 Salary Cap Limit", value=50000, step=100)
+    num_lineups = st.slider("🎯 Number of Lineups", 1, 150, 20)
+    salary_cap = st.number_input("💰 Salary Cap", value=50000, step=100)
     
     st.write("")
     if st.button("🔥 RUN AUTO-PILOT OPTIMIZER", type="primary", use_container_width=True):
@@ -169,8 +149,7 @@ elif app_mode == "🚀 Engine":
         for percent in range(100):
             time.sleep(0.01)
             progress_bar.progress(percent + 1)
-            if percent < 40: status_text.text("Loading Neural Weights...")
-            elif percent < 80: status_text.text(f"Applying {strategy} Algorithms...")
+            if percent < 50: status_text.text(f"Applying {strategy} Algorithms...")
             else: status_text.text("Building Optimized Core...")
             
         status_text.text("✅ EXECUTION COMPLETE.")
@@ -178,7 +157,7 @@ elif app_mode == "🚀 Engine":
         final_lineups, stat_list = run_god_mode_solver(df, num_lineups, salary_cap, strategy)
         
         if final_lineups:
-            st.success(f"🏆 {len(final_lineups)} {strategy} LINEUPS GENERATED!")
+            st.success(f"🏆 {len(final_lineups)} LINEUPS GENERATED!")
             df_out = pd.DataFrame(final_lineups, columns=["P1", "P2", "P3", "P4", "P5"])
             df_out["Metrics"] = stat_list
             df_out.index = [f"A-{i+1}" for i in range(len(df_out))]
