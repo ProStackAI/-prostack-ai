@@ -34,6 +34,14 @@ st.markdown("""
         padding: 16px;
         margin-bottom: 14px;
     }
+    .lock-gate {
+        background: linear-gradient(135deg, #091326 0%, #051911 100%);
+        border: 2px solid #00FF88;
+        border-radius: 14px;
+        padding: 28px;
+        margin: 20px 0;
+        text-align: center;
+    }
     .viral-card {
         background: linear-gradient(135deg, #051911 0%, #091326 100%);
         border: 2px solid #00FF88;
@@ -113,7 +121,7 @@ def register_user(email: str, pw: str):
     c.execute("SELECT email FROM users WHERE email=?", (email,))
     if c.fetchone():
         conn.close()
-        return False, "Account already exists with this email."
+        return False, "Account already exists with this email. Please Sign In!"
     now = datetime.utcnow()
     trial_end = now + timedelta(days=30)
     c.execute("INSERT INTO users VALUES (?, ?, ?, ?, 0, 0)",
@@ -137,6 +145,17 @@ def authenticate_user(email: str, pw: str):
             "is_admin": bool(row[4])
         }
     return None
+
+def check_vip_active(user_dict) -> bool:
+    if not user_dict:
+        return False
+    if user_dict.get("is_vip") or user_dict.get("is_admin"):
+        return True
+    try:
+        t_end = datetime.fromisoformat(user_dict["trial_until"])
+        return datetime.utcnow() <= t_end
+    except Exception:
+        return False
 
 # ==========================================
 # 4. 10 LEAGUES CONFIG & FAST CACHED SLATE
@@ -328,7 +347,7 @@ def optimize_lineups_quant(
     return [active_df.loc[idx_list].copy() for idx_list in lineups]
 
 # ==========================================
-# 6. SIDEBAR: AUTH, VIP STATUS & TELEGRAM HUB
+# 6. SIDEBAR: ACCOUNT STATUS & LEAGUE MENU
 # ==========================================
 if "user" not in st.session_state:
     st.session_state.user = None
@@ -339,33 +358,7 @@ with st.sidebar:
     st.link_button("✈️ Join Official Telegram VIP", SUPPORT_TELEGRAM_URL, use_container_width=True)
     st.divider()
 
-    if st.session_state.user is None:
-        auth_tab1, auth_tab2 = st.tabs(["🔑 Sign In", "🎁 30-Day Free Trial"])
-        with auth_tab1:
-            l_email = st.text_input("Email", key="login_email")
-            l_pw = st.text_input("Password", type="password", key="login_pw")
-            if st.button("Launch Quant Portal", use_container_width=True, type="primary"):
-                u = authenticate_user(l_email, l_pw)
-                if u:
-                    st.session_state.user = u
-                    st.rerun()
-                else:
-                    st.error("Invalid credentials. Or activate your 30-day free trial!")
-        with auth_tab2:
-            r_email = st.text_input("Your Best Email", key="reg_email")
-            r_pw = st.text_input("Create Password", type="password", key="reg_pw")
-            if st.button("Activate 30-Day VIP Trial", use_container_width=True, type="primary"):
-                if "@" in r_email and len(r_pw) >= 4:
-                    ok, msg = register_user(r_email, r_pw)
-                    if ok:
-                        st.success(msg)
-                        st.session_state.user = authenticate_user(r_email, r_pw)
-                        st.rerun()
-                    else:
-                        st.warning(msg)
-                else:
-                    st.warning("Enter a valid email & 4+ char password.")
-    else:
+    if st.session_state.user is not None:
         u = st.session_state.user
         st.success(f"👤 **{u['email']}**")
         if u["is_admin"]:
@@ -378,16 +371,106 @@ with st.sidebar:
         if st.button("🚪 Log Out", use_container_width=True):
             st.session_state.user = None
             st.rerun()
+        st.divider()
 
-    st.divider()
     selected_league = st.selectbox("🏆 Select North American League", list(LEAGUE_CONFIGS.keys()))
     st.caption("Supports DraftKings, FanDuel, PrizePicks & Underdog Fantasy.")
 
 # ==========================================
-# 7. MAIN PORTAL TABS
+# 7. STRICT AUTHENTICATION GATE (NO FREE LEAKS!)
 # ==========================================
 st.title(f"⚡ ProStack AI — {selected_league} Quantitative Command Center")
 
+if st.session_state.user is None:
+    st.markdown("""
+    <div class="lock-gate">
+        <h2 style="color:#00FF88; margin-top:0;">🔒 VIP QUANT PORTAL LOCKED</h2>
+        <p style="font-size:1.05rem; color:#CBD5E1;">
+            Unlock the <b>10,000x Monte Carlo Lineup Simulator</b>, <b>Anti-Chalk GPP Ownership Engine</b>, 
+            <b>Live Sportsbook +EV Prop Devigger</b>, and <b>AI Kelly Bankroll Vault</b> across all 10 North American leagues.
+        </p>
+        <span class="badge-ev">🎁 LIMITED LAUNCH OFFER: Instant 30-Day Free VIP Trial (No Credit Card Required)</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    g_col1, g_col2, g_col3 = st.columns([1, 2, 1])
+    with g_col2:
+        gate_tab1, gate_tab2, gate_tab3 = st.tabs([
+            "🎁 Claim 30-Day Free VIP Trial",
+            "🔑 Member Sign In",
+            "👑 Founder Admin Access"
+        ])
+        with gate_tab1:
+            st.markdown("#### 🚀 Create Your Free VIP Quant Account (Takes 10 Seconds)")
+            r_email = st.text_input("Enter Your Best Email Address", key="gate_reg_email")
+            r_pw = st.text_input("Create a Password (4+ characters)", type="password", key="gate_reg_pw")
+            if st.button("⚡ Activate My 30-Day Free VIP Trial & Unlock App", use_container_width=True, type="primary"):
+                if "@" in r_email and len(r_pw) >= 4:
+                    ok, msg = register_user(r_email, r_pw)
+                    if ok:
+                        st.session_state.user = authenticate_user(r_email, r_pw)
+                        st.success(msg)
+                        st.rerun()
+                    else:
+                        st.warning(msg)
+                else:
+                    st.error("Please enter a valid email address and a password of at least 4 characters.")
+
+        with gate_tab2:
+            st.markdown("#### 🔑 Existing VIP Member Sign In")
+            l_email = st.text_input("Registered Email", key="gate_login_email")
+            l_pw = st.text_input("Password", type="password", key="gate_login_pw")
+            if st.button("🔓 Sign In & Unlock Quant Engine", use_container_width=True, type="primary"):
+                u = authenticate_user(l_email, l_pw)
+                if u:
+                    st.session_state.user = u
+                    st.rerun()
+                else:
+                    st.error("Invalid email or password. If you are new, click 'Claim 30-Day Free VIP Trial'!")
+
+        with gate_tab3:
+            st.markdown("#### 👑 Instant Founder Master Key Login")
+            master_in = st.text_input("🔐 Enter Founder Master Key", type="password", key="gate_master_key")
+            if st.button("👑 Unlock as Founder Admin", use_container_width=True):
+                if master_in == "ProStackAdmin2026!":
+                    st.session_state.user = {
+                        "email": "admin@prostackai.com",
+                        "trial_until": "2036-01-01",
+                        "is_vip": True,
+                        "is_admin": True
+                    }
+                    st.rerun()
+                else:
+                    st.error("Invalid Master Key.")
+
+    st.markdown(f"""
+    <div class="legal-footer">
+        <b>⚖️ US & CANADA LEGAL COMPLIANCE & RESPONSIBLE GAMING SHIELD</b><br>
+        ProStack AI is a quantitative sports analytics and statistical simulation tool for educational and entertainment purposes only. Not a gambling site. Must be 18+ / 21+.<br>
+        © 2026 ProStack AI Quant Technologies | <a href="{SUPPORT_TELEGRAM_URL}" target="_blank" style="color:#00FF88;">Official Telegram VIP Support</a>
+    </div>
+    """, unsafe_allow_html=True)
+    st.stop()
+
+# ==========================================
+# 8. TRIAL EXPIRATION PAYWALL CHECK
+# ==========================================
+if not check_vip_active(st.session_state.user):
+    st.markdown("""
+    <div class="lock-gate">
+        <h2 style="color:#FF4B4B; margin-top:0;">⏳ YOUR 30-DAY FREE VIP TRIAL HAS EXPIRED</h2>
+        <p style="font-size:1.05rem;">
+            To continue accessing the <b>10,000x Monte Carlo Simulator</b>, <b>DraftKings/FanDuel MME Exporter</b>, 
+            and <b>Live +EV Prop Devigger</b>, please upgrade your account to Paid VIP.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.link_button("💎 Message Official Telegram Admin to Activate Paid VIP ($19/mo)", SUPPORT_TELEGRAM_URL, use_container_width=True, type="primary")
+    st.stop()
+
+# ==========================================
+# 9. UNLOCKED VIP PORTAL TABS (ONLY FOR SIGNED-IN USERS)
+# ==========================================
 tabs = st.tabs([
     "🎲 10,000x Monte Carlo & GPP Optimizer",
     "🎯 +EV Pick'em & Prop Devigger",
@@ -612,7 +695,7 @@ with tabs[2]:
 
     with col_k2:
         st.markdown("### 📈 Personal ROI & Profit/Loss Vault")
-        u_email = st.session_state.user["email"] if st.session_state.user else "guest@prostackai.com"
+        u_email = st.session_state.user["email"]
         with st.form("roi_form"):
             c_type = st.selectbox("Contest Type", [f"{selected_league} DraftKings GPP", f"{selected_league} Cash Double-Up", "PrizePicks / Underdog +EV Slip"])
             w_amt = st.number_input("Entry Wager ($)", value=50.0, step=10.0)
@@ -685,7 +768,7 @@ with tabs[3]:
         st.info("Founder authentication required to access user database and backups.")
 
 # ==========================================
-# 8. STRICT US & CANADA LEGAL SHIELD FOOTER
+# 10. STRICT US & CANADA LEGAL SHIELD FOOTER
 # ==========================================
 st.markdown(f"""
 <div class="legal-footer">
