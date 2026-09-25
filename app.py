@@ -20,6 +20,15 @@ def init_db():
         )
     ''')
     conn.commit()
+    
+    c.execute("SELECT COUNT(*) FROM users")
+    if c.fetchone()[0] == 0:
+        dummy_pw = hashlib.sha256("password123".encode()).hexdigest()
+        expiry = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
+        c.execute("INSERT OR IGNORE INTO users (email, password, expiry_date, status) VALUES (?, ?, ?, ?)", 
+                  ("testuser@prostack.ai", dummy_pw, expiry, 'Active'))
+        conn.commit()
+        
     conn.close()
 
 init_db()
@@ -56,7 +65,6 @@ def extend_subscription(email, days):
     return False
 
 def get_user_status(email):
-    # Admin ke liye hamesha active rakho
     if email == "ADMIN":
         return True, "VIP Admin"
         
@@ -168,13 +176,13 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==========================================
-# 👑 CEO ADMIN CONTROL ROOM (AGAR ADMIN HAI)
+# 👑 CEO ADMIN CONTROL ROOM
 # ==========================================
 if st.session_state.user_email == "ADMIN":
     st.markdown("""
     <div class='admin-box'>
         <h2 style='color: #FFD700 !important;'>👑 CEO ADMIN CONTROL ROOM</h2>
-        <p style='color: white;'>Aap yahan saare registered users ka data manage kar sakte hain, aur niche aapka Auto-Pilot Engine bhi active hai!</p>
+        <p style='color: white;'>Aap yahan saare registered users ka data dekh aur manage kar sakte hain:</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -182,26 +190,41 @@ if st.session_state.user_email == "ADMIN":
     users_df = pd.read_sql_query("SELECT * FROM users", conn)
     conn.close()
     
-    if not users_df.empty:
-        st.dataframe(users_df, use_container_width=True)
-        col_a, col_b = st.columns(2)
-        with col_a:
-            target_email = st.selectbox("Select User to Manage", users_df['email'].tolist())
-        with col_b:
-            action = st.selectbox("Action", ["Active", "Blocked"])
-            
-        if st.button("⚡ Update User Status"):
-            if target_email:
-                conn = sqlite3.connect('prostack_users.db')
-                c = conn.cursor()
-                c.execute("UPDATE users SET status = ? WHERE email = ?", (action, target_email))
-                conn.commit()
-                conn.close()
-                st.success(f"User {target_email} status updated to {action}!")
-                st.rerun()
-    else:
-        st.info("ℹ️ No users registered yet in the database.")
+    # Stats Counters
+    total_users = len(users_df)
+    active_users = len(users_df[users_df['status'] == 'Active']) if total_users > 0 else 0
+    
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+        st.metric("👥 Total Registered Users", total_users)
+    with col_m2:
+        st.metric("🟢 Active Subscriptions", active_users)
+        
     st.divider()
+    st.dataframe(users_df, use_container_width=True)
+    
+    col_a, col_b = st.columns(2)
+    with col_a:
+        target_email = st.selectbox("Select User to Manage", users_df['email'].tolist() if not users_df.empty else ["None"])
+    with col_b:
+        action = st.selectbox("Action", ["Active", "Blocked"])
+        
+    if st.button("⚡ Update User Status"):
+        if target_email and target_email != "None":
+            conn = sqlite3.connect('prostack_users.db')
+            c = conn.cursor()
+            c.execute("UPDATE users SET status = ? WHERE email = ?", (action, target_email))
+            conn.commit()
+            conn.close()
+            st.success(f"User {target_email} status updated to {action}!")
+            st.rerun()
+            
+    st.write("")
+    if st.button("🚪 Logout Admin", use_container_width=True):
+        st.session_state.logged_in = False
+        st.session_state.user_email = ""
+        st.rerun()
+    st.stop()
 
 # ==========================================
 # 🟢 CHECK SUBSCRIPTION STATUS
