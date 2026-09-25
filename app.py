@@ -21,11 +21,91 @@ SUPPORT_TELEGRAM_URL = "https://t.me/ProStackAI_Official"
 APP_PUBLIC_URL = "https://prostackai.streamlit.app"
 
 # ==========================================
-# 2. ULTRA DARK QUANT UI STYLING
+# 2. BULLETPROOF DARK & LIGHT MODE CSS FIX
 # ==========================================
 st.markdown("""
 <style>
-    .stApp { background-color: #070B12; color: #E6EDF3; }
+    /* Force Dark Background Everywhere (Even in Phone Light Mode) */
+    .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        background-color: #070B12 !important;
+        color: #FFFFFF !important;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #0B111E !important;
+        border-right: 1px solid #00FF8844 !important;
+    }
+
+    /* Fix Input Labels (Email, Password, Sliders, Selectboxes) -> Bright Light Green! */
+    label, .stTextInput label p, .stNumberInput label p, .stSelectbox label p, .stSlider label p, .stRadio label p {
+        color: #00FF88 !important;
+        font-weight: 700 !important;
+        font-size: 0.98rem !important;
+    }
+
+    /* Fix White Input Boxes -> Sleek Dark Box + Neon Green Border + White Text */
+    div[data-baseweb="input"], div[data-baseweb="base-input"], input {
+        background-color: #111A2E !important;
+        color: #FFFFFF !important;
+        border-color: #00FF88 !important;
+        border-radius: 8px !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+        caret-color: #00FF88 !important;
+    }
+    /* Eye icon inside password box */
+    div[data-baseweb="input"] button, div[data-baseweb="input"] svg {
+        color: #FFD700 !important;
+        fill: #FFD700 !important;
+        background-color: transparent !important;
+    }
+
+    /* Fix Tabs (Member Sign In, Founder Admin) -> Bright Yellow & Light Green */
+    button[data-baseweb="tab"] {
+        background-color: #0F172A !important;
+        border: 1px solid #00FF8855 !important;
+        border-radius: 8px 8px 0 0 !important;
+        padding: 8px 14px !important;
+        margin-right: 4px !important;
+    }
+    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {
+        color: #FFD700 !important;
+        font-weight: 700 !important;
+        font-size: 0.95rem !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        background-color: #052E16 !important;
+        border: 2px solid #00FF88 !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] p {
+        color: #00FF88 !important;
+    }
+
+    /* Fix Tab Scroll Arrow Button (Right/Left Arrow) -> Yellow & Light Green */
+    div[data-testid="stTabs"] button:not([data-baseweb="tab"]),
+    div[role="tablist"] ~ button,
+    [data-baseweb="tab-list"] button:not([role="tab"]) {
+        background-color: #111A2E !important;
+        border: 1.5px solid #00FF88 !important;
+        color: #FFD700 !important;
+    }
+    div[data-testid="stTabs"] svg {
+        fill: #00FF88 !important;
+        color: #00FF88 !important;
+    }
+
+    /* Headings & Text Visibility */
+    h1, h2, h3, h4, h5, h6, p, span {
+        color: #F8FAFC;
+    }
+
+    /* Primary Action Button -> Neon Green Glow */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(90deg, #00FF88 0%, #00CC6A 100%) !important;
+        color: #04120B !important;
+        font-weight: 800 !important;
+        border: none !important;
+        border-radius: 8px !important;
+    }
+
     .quant-card {
         background: linear-gradient(145deg, #0F1724, #0B101B);
         border: 1px solid #1E293B;
@@ -38,8 +118,8 @@ st.markdown("""
         background: linear-gradient(135deg, #091326 0%, #051911 100%);
         border: 2px solid #00FF88;
         border-radius: 14px;
-        padding: 28px;
-        margin: 20px 0;
+        padding: 24px;
+        margin: 16px 0;
         text-align: center;
     }
     .viral-card {
@@ -52,15 +132,16 @@ st.markdown("""
     }
     .badge-ev {
         background-color: #00FF8822;
-        color: #00FF88;
-        padding: 4px 10px;
+        color: #00FF88 !important;
+        padding: 5px 12px;
         border-radius: 6px;
         font-weight: 700;
-        font-size: 0.85rem;
+        font-size: 0.88rem;
+        display: inline-block;
     }
     .legal-footer {
         font-size: 0.78rem;
-        color: #8B949E;
+        color: #94A3B8 !important;
         text-align: center;
         border-top: 1px solid #1E293B;
         padding-top: 15px;
@@ -385,7 +466,7 @@ if st.session_state.user is None:
     st.markdown("""
     <div class="lock-gate">
         <h2 style="color:#00FF88; margin-top:0;">🔒 VIP QUANT PORTAL LOCKED</h2>
-        <p style="font-size:1.05rem; color:#CBD5E1;">
+        <p style="font-size:1.05rem; color:#FFFFFF;">
             Unlock the <b>10,000x Monte Carlo Lineup Simulator</b>, <b>Anti-Chalk GPP Ownership Engine</b>, 
             <b>Live Sportsbook +EV Prop Devigger</b>, and <b>AI Kelly Bankroll Vault</b> across all 10 North American leagues.
         </p>
@@ -393,17 +474,17 @@ if st.session_state.user is None:
     </div>
     """, unsafe_allow_html=True)
 
-    g_col1, g_col2, g_col3 = st.columns([1, 2, 1])
+    g_col1, g_col2, g_col3 = st.columns([1, 2.2, 1])
     with g_col2:
         gate_tab1, gate_tab2, gate_tab3 = st.tabs([
-            "🎁 Claim 30-Day Free VIP Trial",
+            "🎁 30-Day Free Trial",
             "🔑 Member Sign In",
-            "👑 Founder Admin Access"
+            "👑 Admin"
         ])
         with gate_tab1:
             st.markdown("#### 🚀 Create Your Free VIP Quant Account (Takes 10 Seconds)")
-            r_email = st.text_input("Enter Your Best Email Address", key="gate_reg_email")
-            r_pw = st.text_input("Create a Password (4+ characters)", type="password", key="gate_reg_pw")
+            r_email = st.text_input("📧 Enter Your Best Email Address", key="gate_reg_email")
+            r_pw = st.text_input("🔑 Create a Password (4+ characters)", type="password", key="gate_reg_pw")
             if st.button("⚡ Activate My 30-Day Free VIP Trial & Unlock App", use_container_width=True, type="primary"):
                 if "@" in r_email and len(r_pw) >= 4:
                     ok, msg = register_user(r_email, r_pw)
@@ -418,20 +499,20 @@ if st.session_state.user is None:
 
         with gate_tab2:
             st.markdown("#### 🔑 Existing VIP Member Sign In")
-            l_email = st.text_input("Registered Email", key="gate_login_email")
-            l_pw = st.text_input("Password", type="password", key="gate_login_pw")
+            l_email = st.text_input("📧 Registered Email Address", key="gate_login_email")
+            l_pw = st.text_input("🔑 Enter Your Password", type="password", key="gate_login_pw")
             if st.button("🔓 Sign In & Unlock Quant Engine", use_container_width=True, type="primary"):
                 u = authenticate_user(l_email, l_pw)
                 if u:
                     st.session_state.user = u
                     st.rerun()
                 else:
-                    st.error("Invalid email or password. If you are new, click 'Claim 30-Day Free VIP Trial'!")
+                    st.error("Invalid email or password. If you are new, tap '🎁 30-Day Free Trial'!")
 
         with gate_tab3:
             st.markdown("#### 👑 Instant Founder Master Key Login")
             master_in = st.text_input("🔐 Enter Founder Master Key", type="password", key="gate_master_key")
-            if st.button("👑 Unlock as Founder Admin", use_container_width=True):
+            if st.button("👑 Unlock as Founder Admin", use_container_width=True, type="primary"):
                 if master_in == "ProStackAdmin2026!":
                     st.session_state.user = {
                         "email": "admin@prostackai.com",
@@ -469,13 +550,13 @@ if not check_vip_active(st.session_state.user):
     st.stop()
 
 # ==========================================
-# 9. UNLOCKED VIP PORTAL TABS (ONLY FOR SIGNED-IN USERS)
+# 9. UNLOCKED VIP PORTAL TABS
 # ==========================================
 tabs = st.tabs([
-    "🎲 10,000x Monte Carlo & GPP Optimizer",
-    "🎯 +EV Pick'em & Prop Devigger",
-    "💰 Kelly Bankroll & ROI Vault",
-    "👑 Founder Admin & VIP Control"
+    "🎲 10,000x Optimizer",
+    "🎯 +EV Prop Devigger",
+    "💰 Kelly & ROI Vault",
+    "👑 Founder Admin"
 ])
 
 # ------------------------------------------
