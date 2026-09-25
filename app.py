@@ -21,7 +21,7 @@ SUPPORT_TELEGRAM_URL = "https://t.me/ProStackAI_Official"
 APP_PUBLIC_URL = "https://prostackai.streamlit.app"
 
 # ==========================================
-# 2. BULLETPROOF DARK & LIGHT MODE CSS FIX
+# 2. BULLETPROOF DARK/LIGHT CSS + HIDE "PRESS ENTER"
 # ==========================================
 st.markdown("""
 <style>
@@ -35,14 +35,29 @@ st.markdown("""
         border-right: 1px solid #00FF8844 !important;
     }
 
-    /* Fix Input Labels (Email, Password, Sliders, Selectboxes) -> Bright Light Green! */
+    /* COMPLETELY REMOVE "Press Enter to apply / submit" FROM ALL INPUT BOXES */
+    [data-testid="InputInstructions"], .stTextInput small, div[data-baseweb="input"] small {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0px !important;
+        font-size: 0px !important;
+    }
+
+    /* Fix Input Labels -> Bright Light Green */
     label, .stTextInput label p, .stNumberInput label p, .stSelectbox label p, .stSlider label p, .stRadio label p {
         color: #00FF88 !important;
         font-weight: 700 !important;
         font-size: 0.98rem !important;
     }
 
-    /* Fix White Input Boxes -> Sleek Dark Box + Neon Green Border + White Text */
+    /* Radio Button Options Text -> Bright White & Gold */
+    div[role="radiogroup"] label p, div[role="radiogroup"] span {
+        color: #FFD700 !important;
+        font-weight: 700 !important;
+        font-size: 0.96rem !important;
+    }
+
+    /* Sleek Dark Input Boxes + Neon Green Border + White Text */
     div[data-baseweb="input"], div[data-baseweb="base-input"], input {
         background-color: #111A2E !important;
         color: #FFFFFF !important;
@@ -51,14 +66,22 @@ st.markdown("""
         -webkit-text-fill-color: #FFFFFF !important;
         caret-color: #00FF88 !important;
     }
-    /* Eye icon inside password box */
     div[data-baseweb="input"] button, div[data-baseweb="input"] svg {
         color: #FFD700 !important;
         fill: #FFD700 !important;
         background-color: transparent !important;
     }
 
-    /* Fix Tabs (Member Sign In, Founder Admin) -> Bright Yellow & Light Green */
+    /* Clean Form Card Styling */
+    [data-testid="stForm"] {
+        background: linear-gradient(145deg, #0D1526, #090E1A) !important;
+        border: 1.5px solid #00FF8866 !important;
+        border-radius: 14px !important;
+        padding: 22px !important;
+        margin-bottom: 16px !important;
+    }
+
+    /* Fix Tabs -> Bright Yellow & Light Green */
     button[data-baseweb="tab"] {
         background-color: #0F172A !important;
         border: 1px solid #00FF8855 !important;
@@ -79,7 +102,7 @@ st.markdown("""
         color: #00FF88 !important;
     }
 
-    /* Fix Tab Scroll Arrow Button (Right/Left Arrow) -> Yellow & Light Green */
+    /* Fix Tab Scroll Arrow Buttons (< and >) -> Yellow & Light Green */
     div[data-testid="stTabs"] button:not([data-baseweb="tab"]),
     div[role="tablist"] ~ button,
     [data-baseweb="tab-list"] button:not([role="tab"]) {
@@ -92,18 +115,21 @@ st.markdown("""
         color: #00FF88 !important;
     }
 
-    /* Headings & Text Visibility */
-    h1, h2, h3, h4, h5, h6, p, span {
-        color: #F8FAFC;
-    }
-
-    /* Primary Action Button -> Neon Green Glow */
-    .stButton > button[kind="primary"] {
+    /* Big Dedicated Submit & Primary Buttons */
+    .stButton > button[kind="primary"], [data-testid="stFormSubmitButton"] > button {
         background: linear-gradient(90deg, #00FF88 0%, #00CC6A 100%) !important;
         color: #04120B !important;
         font-weight: 800 !important;
+        font-size: 1.02rem !important;
         border: none !important;
-        border-radius: 8px !important;
+        border-radius: 10px !important;
+        padding: 12px 18px !important;
+        margin-top: 8px !important;
+        width: 100% !important;
+    }
+
+    h1, h2, h3, h4, h5, h6, p, span {
+        color: #F8FAFC;
     }
 
     .quant-card {
@@ -118,8 +144,8 @@ st.markdown("""
         background: linear-gradient(135deg, #091326 0%, #051911 100%);
         border: 2px solid #00FF88;
         border-radius: 14px;
-        padding: 24px;
-        margin: 16px 0;
+        padding: 22px;
+        margin: 14px 0;
         text-align: center;
     }
     .viral-card {
@@ -151,7 +177,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. DATABASE & BACKUP ENGINE (SQLite)
+# 3. DATABASE & BACKUP ENGINE (EMAIL + PHONE)
 # ==========================================
 DB_FILE = "prostack_enterprise.db"
 
@@ -164,6 +190,7 @@ def init_db():
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
             email TEXT PRIMARY KEY,
+            phone TEXT,
             password_hash TEXT,
             created_at TEXT,
             trial_until TEXT,
@@ -171,6 +198,12 @@ def init_db():
             is_admin INTEGER DEFAULT 0
         )
     """)
+    # Auto-upgrade existing DB if 'phone' column was missing
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''")
+    except Exception:
+        pass
+
     c.execute("""
         CREATE TABLE IF NOT EXISTS roi_vault (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -182,11 +215,14 @@ def init_db():
         )
     """)
     admin_email = "admin@prostackai.com"
+    admin_phone = "+10000000000"
     admin_hash = hashlib.sha256("ProStackAdmin2026!".encode()).hexdigest()
     now_str = datetime.utcnow().isoformat()
     vip_until = (datetime.utcnow() + timedelta(days=3650)).isoformat()
-    c.execute("INSERT OR IGNORE INTO users VALUES (?, ?, ?, ?, 1, 1)",
-              (admin_email, admin_hash, now_str, vip_until))
+    c.execute("""
+        INSERT OR IGNORE INTO users (email, phone, password_hash, created_at, trial_until, is_vip, is_admin)
+        VALUES (?, ?, ?, ?, ?, 1, 1)
+    """, (admin_email, admin_phone, admin_hash, now_str, vip_until))
     conn.commit()
     conn.close()
 
@@ -195,37 +231,69 @@ init_db()
 def hash_pw(pw: str) -> str:
     return hashlib.sha256(pw.encode()).hexdigest()
 
-def register_user(email: str, pw: str):
+def clean_phone(ph: str) -> str:
+    return "".join(ch for ch in ph.strip() if ch.isdigit() or ch == "+")
+
+def register_user(email: str, phone: str, pw: str):
     conn = get_conn()
     c = conn.cursor()
     email = email.strip().lower()
-    c.execute("SELECT email FROM users WHERE email=?", (email,))
+    phone_clean = clean_phone(phone)
+
+    c.execute("SELECT email FROM users WHERE email=? OR (phone=? AND phone!='')", (email, phone_clean))
     if c.fetchone():
         conn.close()
-        return False, "Account already exists with this email. Please Sign In!"
+        return False, "Account already exists with this Email or Phone Number. Please Sign In or use Forgot Password!"
+
     now = datetime.utcnow()
     trial_end = now + timedelta(days=30)
-    c.execute("INSERT INTO users VALUES (?, ?, ?, ?, 0, 0)",
-              (email, hash_pw(pw), now.isoformat(), trial_end.isoformat()))
+    c.execute("""
+        INSERT INTO users (email, phone, password_hash, created_at, trial_until, is_vip, is_admin)
+        VALUES (?, ?, ?, ?, ?, 0, 0)
+    """, (email, phone_clean, hash_pw(pw), now.isoformat(), trial_end.isoformat()))
     conn.commit()
     conn.close()
     return True, "🎉 30-Day VIP Quant Trial Activated!"
 
-def authenticate_user(email: str, pw: str):
+def authenticate_user(identifier: str, pw: str):
     conn = get_conn()
     c = conn.cursor()
-    email = email.strip().lower()
-    c.execute("SELECT email, password_hash, trial_until, is_vip, is_admin FROM users WHERE email=?", (email,))
+    ident_clean = identifier.strip().lower()
+    phone_ident = clean_phone(identifier)
+
+    c.execute("""
+        SELECT email, phone, password_hash, trial_until, is_vip, is_admin 
+        FROM users 
+        WHERE email=? OR (phone=? AND phone!='')
+    """, (ident_clean, phone_ident))
     row = c.fetchone()
     conn.close()
-    if row and row[1] == hash_pw(pw):
+    if row and row[2] == hash_pw(pw):
         return {
             "email": row[0],
-            "trial_until": row[2],
-            "is_vip": bool(row[3]),
-            "is_admin": bool(row[4])
+            "phone": row[1] or "",
+            "trial_until": row[3],
+            "is_vip": bool(row[4]),
+            "is_admin": bool(row[5])
         }
     return None
+
+def reset_user_password(email: str, phone: str, new_pw: str):
+    conn = get_conn()
+    c = conn.cursor()
+    email_clean = email.strip().lower()
+    phone_clean = clean_phone(phone)
+
+    c.execute("SELECT email, phone FROM users WHERE email=? AND phone=?", (email_clean, phone_clean))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return False, "❌ Email and Phone Number do not match our records. Please check both carefully!"
+
+    c.execute("UPDATE users SET password_hash=? WHERE email=?", (hash_pw(new_pw), email_clean))
+    conn.commit()
+    conn.close()
+    return True, "✅ Password Reset Successful! You can now Sign In with your new password."
 
 def check_vip_active(user_dict) -> bool:
     if not user_dict:
@@ -442,6 +510,8 @@ with st.sidebar:
     if st.session_state.user is not None:
         u = st.session_state.user
         st.success(f"👤 **{u['email']}**")
+        if u.get("phone"):
+            st.caption(f"📱 Phone: `{u['phone']}`")
         if u["is_admin"]:
             st.markdown("👑 **Role:** `FOUNDER / ADMIN`")
         elif u["is_vip"]:
@@ -449,7 +519,7 @@ with st.sidebar:
         else:
             st.markdown(f"🎁 **VIP Trial Until:** `{u['trial_until'][:10]}`")
 
-        if st.button("🚪 Log Out", use_container_width=True):
+        if st.button("🚪 Log Out", use_container_width=True, type="primary"):
             st.session_state.user = None
             st.rerun()
         st.divider()
@@ -458,36 +528,43 @@ with st.sidebar:
     st.caption("Supports DraftKings, FanDuel, PrizePicks & Underdog Fantasy.")
 
 # ==========================================
-# 7. STRICT AUTHENTICATION GATE (NO FREE LEAKS!)
+# 7. CLEAN SEPARATE AUTHENTICATION PORTAL
 # ==========================================
 st.title(f"⚡ ProStack AI — {selected_league} Quantitative Command Center")
 
 if st.session_state.user is None:
     st.markdown("""
     <div class="lock-gate">
-        <h2 style="color:#00FF88; margin-top:0;">🔒 VIP QUANT PORTAL LOCKED</h2>
-        <p style="font-size:1.05rem; color:#FFFFFF;">
-            Unlock the <b>10,000x Monte Carlo Lineup Simulator</b>, <b>Anti-Chalk GPP Ownership Engine</b>, 
-            <b>Live Sportsbook +EV Prop Devigger</b>, and <b>AI Kelly Bankroll Vault</b> across all 10 North American leagues.
+        <h2 style="color:#00FF88; margin-top:0;">🔒 VIP QUANT PORTAL</h2>
+        <p style="font-size:1.0rem; color:#FFFFFF;">
+            Unlock the <b>10,000x Monte Carlo Simulator</b>, <b>Anti-Chalk GPP Ownership Engine</b>, 
+            <b>Live Sportsbook +EV Prop Devigger</b>, and <b>AI Kelly Bankroll Vault</b>.
         </p>
-        <span class="badge-ev">🎁 LIMITED LAUNCH OFFER: Instant 30-Day Free VIP Trial (No Credit Card Required)</span>
+        <span class="badge-ev">🎁 New Members Get Instant 30-Day Free VIP Access!</span>
     </div>
     """, unsafe_allow_html=True)
 
-    g_col1, g_col2, g_col3 = st.columns([1, 2.2, 1])
-    with g_col2:
-        gate_tab1, gate_tab2, gate_tab3 = st.tabs([
-            "🎁 30-Day Free Trial",
-            "🔑 Member Sign In",
-            "👑 Admin"
-        ])
-        with gate_tab1:
-            st.markdown("#### 🚀 Create Your Free VIP Quant Account (Takes 10 Seconds)")
-            r_email = st.text_input("📧 Enter Your Best Email Address", key="gate_reg_email")
-            r_pw = st.text_input("🔑 Create a Password (4+ characters)", type="password", key="gate_reg_pw")
-            if st.button("⚡ Activate My 30-Day Free VIP Trial & Unlock App", use_container_width=True, type="primary"):
-                if "@" in r_email and len(r_pw) >= 4:
-                    ok, msg = register_user(r_email, r_pw)
+    auth_mode = st.radio(
+        "👇 Choose an Option Below:",
+        [
+            "🎁 New Member Sign Up",
+            "🔑 Member Login",
+            "🔄 Forgot Password",
+            "👑 Founder Admin"
+        ],
+        horizontal=True
+    )
+
+    if auth_mode == "🎁 New Member Sign Up":
+        with st.form("signup_clean_form", clear_on_submit=False):
+            st.markdown("### 🎁 Create New VIP Account (30 Days Free)")
+            r_email = st.text_input("📧 Enter Your Email Address", placeholder="you@example.com")
+            r_phone = st.text_input("📱 Enter Phone / WhatsApp Number (with Country Code)", placeholder="+1 555 234 5678")
+            r_pw = st.text_input("🔑 Create Password (4+ characters)", type="password", placeholder="••••••••")
+            sub_signup = st.form_submit_button("🚀 CREATE ACCOUNT & UNLOCK 30-DAY VIP TRIAL")
+            if sub_signup:
+                if "@" in r_email and len(clean_phone(r_phone)) >= 7 and len(r_pw) >= 4:
+                    ok, msg = register_user(r_email, r_phone, r_pw)
                     if ok:
                         st.session_state.user = authenticate_user(r_email, r_pw)
                         st.success(msg)
@@ -495,34 +572,59 @@ if st.session_state.user is None:
                     else:
                         st.warning(msg)
                 else:
-                    st.error("Please enter a valid email address and a password of at least 4 characters.")
+                    st.error("Please enter a valid Email, Phone Number (7+ digits), and Password (4+ chars).")
 
-        with gate_tab2:
-            st.markdown("#### 🔑 Existing VIP Member Sign In")
-            l_email = st.text_input("📧 Registered Email Address", key="gate_login_email")
-            l_pw = st.text_input("🔑 Enter Your Password", type="password", key="gate_login_pw")
-            if st.button("🔓 Sign In & Unlock Quant Engine", use_container_width=True, type="primary"):
-                u = authenticate_user(l_email, l_pw)
+    elif auth_mode == "🔑 Member Login":
+        with st.form("login_clean_form", clear_on_submit=False):
+            st.markdown("### 🔑 Existing Member Sign In (Email OR Phone)")
+            l_ident = st.text_input("📧📱 Enter Your Registered Email OR Phone Number", placeholder="you@example.com or +15552345678")
+            l_pw = st.text_input("🔑 Enter Your Password", type="password", placeholder="••••••••")
+            sub_login = st.form_submit_button("🔓 SIGN IN TO QUANT COMMAND CENTER")
+            if sub_login:
+                u = authenticate_user(l_ident, l_pw)
                 if u:
                     st.session_state.user = u
                     st.rerun()
                 else:
-                    st.error("Invalid email or password. If you are new, tap '🎁 30-Day Free Trial'!")
+                    st.error("Invalid credentials! Forgot your password? Select '🔄 Forgot Password' above.")
 
-        with gate_tab3:
-            st.markdown("#### 👑 Instant Founder Master Key Login")
-            master_in = st.text_input("🔐 Enter Founder Master Key", type="password", key="gate_master_key")
-            if st.button("👑 Unlock as Founder Admin", use_container_width=True, type="primary"):
+    elif auth_mode == "🔄 Forgot Password":
+        with st.form("forgot_pw_form", clear_on_submit=False):
+            st.markdown("### 🔄 Instant Password Recovery (Verify Email + Phone)")
+            st.caption("Enter both your registered Email ID and Phone Number to immediately set a new password.")
+            f_email = st.text_input("📧 Enter Your Registered Email Address", placeholder="you@example.com")
+            f_phone = st.text_input("📱 Enter Your Registered Phone Number", placeholder="+1 555 234 5678")
+            f_new_pw = st.text_input("🔑 Create New Password (4+ characters)", type="password", placeholder="••••••••")
+            sub_reset = st.form_submit_button("🔄 VERIFY & RESET MY PASSWORD NOW")
+            if sub_reset:
+                if "@" in f_email and len(clean_phone(f_phone)) >= 7 and len(f_new_pw) >= 4:
+                    ok, msg = reset_user_password(f_email, f_phone, f_new_pw)
+                    if ok:
+                        st.success(msg)
+                        st.session_state.user = authenticate_user(f_email, f_new_pw)
+                        st.rerun()
+                    else:
+                        st.error(msg)
+                else:
+                    st.error("Please enter your valid registered Email, Phone Number, and a 4+ character new password.")
+
+    elif auth_mode == "👑 Founder Admin":
+        with st.form("admin_clean_form", clear_on_submit=False):
+            st.markdown("### 👑 Founder Command Center Access")
+            master_in = st.text_input("🔐 Enter Founder Master Key", type="password", placeholder="Enter secret founder key...")
+            sub_admin = st.form_submit_button("👑 VERIFY & UNLOCK FOUNDER ADMIN")
+            if sub_admin:
                 if master_in == "ProStackAdmin2026!":
                     st.session_state.user = {
                         "email": "admin@prostackai.com",
+                        "phone": "+10000000000",
                         "trial_until": "2036-01-01",
                         "is_vip": True,
                         "is_admin": True
                     }
                     st.rerun()
                 else:
-                    st.error("Invalid Master Key.")
+                    st.error("Invalid Founder Master Key.")
 
     st.markdown(f"""
     <div class="legal-footer">
@@ -781,7 +883,7 @@ with tabs[2]:
             c_type = st.selectbox("Contest Type", [f"{selected_league} DraftKings GPP", f"{selected_league} Cash Double-Up", "PrizePicks / Underdog +EV Slip"])
             w_amt = st.number_input("Entry Wager ($)", value=50.0, step=10.0)
             p_amt = st.number_input("Total Payout Won ($)", value=125.0, step=10.0)
-            if st.form_submit_button("💾 Log Result to My Vault", use_container_width=True):
+            if st.form_submit_button("💾 LOG RESULT TO MY VAULT"):
                 conn = get_conn()
                 c = conn.cursor()
                 c.execute("INSERT INTO roi_vault (email, entry_date, contest_type, wager, payout) VALUES (?, ?, ?, ?, ?)",
@@ -808,12 +910,28 @@ with tabs[2]:
 # ------------------------------------------
 with tabs[3]:
     st.subheader("👑 Founder Command Center, VIP Manager & Cloud DB Backup")
-    admin_key = st.text_input("🔐 Enter Founder Master Key", type="password")
-    if admin_key == "ProStackAdmin2026!" or (st.session_state.user and st.session_state.user.get("is_admin")):
+
+    if "admin_unlocked" not in st.session_state:
+        st.session_state.admin_unlocked = False
+
+    if st.session_state.user and st.session_state.user.get("is_admin"):
+        st.session_state.admin_unlocked = True
+
+    if not st.session_state.admin_unlocked:
+        with st.form("admin_tab_unlock_form"):
+            admin_key_input = st.text_input("🔐 Enter Founder Master Key", type="password", placeholder="Enter Founder Key...")
+            unlock_btn = st.form_submit_button("🔓 VERIFY & UNLOCK ADMIN COMMAND CENTER")
+            if unlock_btn:
+                if admin_key_input == "ProStackAdmin2026!":
+                    st.session_state.admin_unlocked = True
+                    st.rerun()
+                else:
+                    st.error("Invalid Founder Master Key.")
+    else:
         conn = get_conn()
-        users_df = pd.read_sql_query("SELECT email, created_at, trial_until, is_vip, is_admin FROM users", conn)
+        users_df = pd.read_sql_query("SELECT email, phone, created_at, trial_until, is_vip, is_admin FROM users", conn)
         conn.close()
-        st.metric("👥 Total Registered Users", len(users_df))
+        st.metric("👥 Total Registered Users (With Email & Phone)", len(users_df))
         st.dataframe(users_df, use_container_width=True)
 
         st.markdown("#### 💎 Manual VIP Grant / Revoke Control")
@@ -839,14 +957,12 @@ with tabs[3]:
 
         st.divider()
         st.download_button(
-            "📥 1-Click Download Full User Database Backup (JSON)",
+            "📥 1-Click Download Full User Database Backup (Emails + Phone Numbers JSON)",
             data=users_df.to_json(orient="records"),
             file_name="prostack_users_backup.json",
             mime="application/json",
             use_container_width=True
         )
-    else:
-        st.info("Founder authentication required to access user database and backups.")
 
 # ==========================================
 # 10. STRICT US & CANADA LEGAL SHIELD FOOTER
