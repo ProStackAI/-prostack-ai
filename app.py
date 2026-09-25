@@ -17,9 +17,11 @@ PAYMENT_LINKS = {
     "👑 1 Year VIP Pass ($249 / ₹20,000)": "https://buy.stripe.com/test_1year_link"
 }
 
-# --- 1. DATABASE & ENTERPRISE SETUP ---
+# --- 1. DATABASE & ENTERPRISE SETUP (AUTO-REPAIR ENABLED) ---
+DB_FILE = 'prostack_v2_users.db'
+
 def init_db():
-    conn = sqlite3.connect('prostack_users.db')
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -31,14 +33,6 @@ def init_db():
             payment_ref TEXT DEFAULT 'None'
         )
     ''')
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN pending_plan TEXT DEFAULT 'None'")
-    except:
-        pass
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN payment_ref TEXT DEFAULT 'None'")
-    except:
-        pass
     conn.commit()
     
     c.execute("SELECT COUNT(*) FROM users")
@@ -54,13 +48,15 @@ def init_db():
 init_db()
 
 def add_user(email, password, days=30):
-    conn = sqlite3.connect('prostack_users.db')
+    clean_email = email.strip().lower()
+    clean_pw = password.strip()
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    hashed_pw = hashlib.sha256(password.encode()).hexdigest()
+    hashed_pw = hashlib.sha256(clean_pw.encode()).hexdigest()
     expiry = (datetime.now() + timedelta(days=days)).strftime('%Y-%m-%d %H:%M:%S')
     try:
         c.execute("INSERT INTO users (email, password, expiry_date, status, pending_plan, payment_ref) VALUES (?, ?, ?, ?, ?, ?)", 
-                  (email, hashed_pw, expiry, 'Active', 'None', 'None'))
+                  (clean_email, hashed_pw, expiry, 'Active', 'None', 'None'))
         conn.commit()
         conn.close()
         return True
@@ -69,14 +65,15 @@ def add_user(email, password, days=30):
         return False
 
 def submit_payment_request(email, plan_name, ref_id):
-    conn = sqlite3.connect('prostack_users.db')
+    clean_email = email.strip().lower()
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute("UPDATE users SET pending_plan = ?, payment_ref = ? WHERE email = ?", (plan_name, ref_id, email))
+    c.execute("UPDATE users SET pending_plan = ?, payment_ref = ? WHERE email = ?", (plan_name, ref_id, clean_email))
     conn.commit()
     conn.close()
 
 def admin_update_user(email, new_status, add_days=0):
-    conn = sqlite3.connect('prostack_users.db')
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     if add_days > 0:
         c.execute("SELECT expiry_date FROM users WHERE email = ?", (email,))
@@ -96,9 +93,9 @@ def get_user_status(email):
     if email == "ADMIN":
         return True, "Unlimited (VIP Admin)"
         
-    conn = sqlite3.connect('prostack_users.db')
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute("SELECT expiry_date, status FROM users WHERE email = ?", (email,))
+    c.execute("SELECT expiry_date, status FROM users WHERE email = ?", (email.strip().lower(),))
     row = c.fetchone()
     conn.close()
     if row:
@@ -112,10 +109,15 @@ def get_user_status(email):
     return False, "Not Found"
 
 def verify_user(email, password):
-    conn = sqlite3.connect('prostack_users.db')
+    clean_email = email.strip().lower()
+    clean_pw = password.strip()
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    hashed_pw = hashlib.sha256(password.encode()).hexdigest()
-    c.execute("SELECT expiry_date, status FROM users WHERE email = ? AND password = ?", (email, hashed_pw))
+    hashed_pw = hashlib.sha256(clean_pw.encode()).hexdigest()
+    hashed_pw_lower = hashlib.sha256(clean_pw.lower().encode()).hexdigest()
+    
+    c.execute("SELECT expiry_date, status FROM users WHERE email = ? AND (password = ? OR password = ?)", 
+              (clean_email, hashed_pw, hashed_pw_lower))
     row = c.fetchone()
     conn.close()
     if row:
@@ -170,7 +172,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔐 LOGIN & SIGNUP AUTHENTICATION GATE
+# 🔐 LOGIN & SIGNUP AUTHENTICATION GATE (MOBILE-PROOF)
 # ==========================================
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
@@ -186,10 +188,15 @@ if not st.session_state.logged_in:
         auth_mode = st.radio("Choose Action:", ["Login", "Sign Up (Register)"], horizontal=True)
         
         if auth_mode == "Login":
-            l_email = st.text_input("Email Address")
-            l_password = st.text_input("Password", type="password")
+            l_email = st.text_input("Email Address", placeholder="admin@prostack.ai")
+            l_password = st.text_input("Password", type="password", placeholder="Enter password")
+            
             if st.button("🔥 LOGIN TO ENGINE", use_container_width=True):
-                if l_email == "admin@prostack.ai" and l_password == "ceo2000cr":
+                clean_l_email = l_email.strip().lower()
+                clean_l_pw = l_password.strip().lower()
+                
+                # Mobile-Proof Admin Check (ignores spaces and capital letters)
+                if clean_l_email in ["admin@prostack.ai", "admin"] and clean_l_pw == "ceo2000cr":
                     st.session_state.logged_in = True
                     st.session_state.user_email = "ADMIN"
                     st.rerun()
@@ -197,19 +204,24 @@ if not st.session_state.logged_in:
                     success, msg = verify_user(l_email, l_password)
                     if success:
                         st.session_state.logged_in = True
-                        st.session_state.user_email = l_email
+                        st.session_state.user_email = clean_l_email
                         st.rerun()
                     else:
                         st.error(f"❌ {msg}")
         else:
             s_email = st.text_input("Enter Your Email Address")
-            s_password = st.text_input("Create Password", type="password")
-            if st.button("🚀 CREATE ACCOUNT", use_container_width=True):
-                if "@" in s_email and len(s_password) >= 6:
-                    if add_user(s_email, s_password, days=30):
-                        st.success("✅ Account created! 30 Days Free Trial Granted. Please switch to Login.")
+            s_password = st.text_input("Create Password (min 6 chars)", type="password")
+            if st.button("🚀 CREATE ACCOUNT & LOGIN", use_container_width=True):
+                clean_s_email = s_email.strip().lower()
+                clean_s_pw = s_password.strip()
+                if "@" in clean_s_email and len(clean_s_pw) >= 6:
+                    if add_user(clean_s_email, clean_s_pw, days=30):
+                        # Auto-login immediately after sign up!
+                        st.session_state.logged_in = True
+                        st.session_state.user_email = clean_s_email
+                        st.rerun()
                     else:
-                        st.error("⚠️ Email already registered!")
+                        st.error("⚠️ Email already registered! Please switch to Login.")
                 else:
                     st.error("⚠️ Enter valid email and password (min 6 chars).")
     st.stop()
@@ -225,7 +237,7 @@ if st.session_state.user_email == "ADMIN":
     </div>
     """, unsafe_allow_html=True)
     
-    conn = sqlite3.connect('prostack_users.db')
+    conn = sqlite3.connect(DB_FILE)
     users_df = pd.read_sql_query("SELECT email, expiry_date, status, pending_plan, payment_ref FROM users", conn)
     conn.close()
     
@@ -426,7 +438,7 @@ SPORTS_DATA = {
     },
     "🥊 UFC / MMA (Fight Night & PPV)": {
         "live_matches": [
-            {"title": "Alex Pereira vs Khalil Rountree Jr. (Main Event)", "status": "🔴 LIVE • Main Card Underway", "info": "🔥 KO/TBO Odds: -280 | 5-Round Championship"},
+            {"title": "Alex Pereira vs Khalil Rountree Jr. (Main Event)", "status": "🔴 LIVE • Main Card Underway", "info": "🔥 KO/TKO Odds: -280 | 5-Round Championship"},
             {"title": "Islam Makhachev vs Arman Tsarukyan (Co-Main)", "status": "🟢 TODAY • Walkouts at 11:15 PM EST", "info": "⚡ Grappling & High-Output Pace"}
         ],
         "upcoming_matches": [
@@ -531,7 +543,6 @@ selected_sport = st.selectbox(
     list(SPORTS_DATA.keys())
 )
 
-# Switch Between Live/Today's Matches and Upcoming Matches
 match_view = st.radio(
     "Select Match View:",
     ["🔴 Live & Today's Matches", "⏳ Upcoming Matches (Next 48 Hrs)"],
@@ -559,7 +570,6 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
-# Target Match Contest Selector
 all_match_titles = ["🔥 Full Main Slate (All Today's Matches)"] + [m["title"] for m in SPORTS_DATA[selected_sport]["live_matches"]] + [u["title"] + " (Upcoming)" for u in SPORTS_DATA[selected_sport]["upcoming_matches"]]
 selected_slate = st.selectbox("🎯 Select Target Match / Contest Slate for Optimizer:", all_match_titles)
 
