@@ -458,120 +458,241 @@ if not is_active:
     st.stop()
 
 # ==========================================
-# 🏟️ STEP 1: 10-SPORT PURE USA & CANADA MATCH CENTER (EST / PST TIMINGS)
+# 🏟️ STEP 1: MEGA 36-PLAYER POOL GENERATOR PER SPORT (360+ REAL PLAYERS TOTAL)
 # ==========================================
 st.markdown("### 🎮 Step 1: North America Game Selector & Match Center (🇺🇸 USA & 🇨🇦 Canada)")
 
+def build_roster_pool(tuples_list, vegas_default=50.0):
+    return {
+        "ID": range(1, len(tuples_list) + 1),
+        "Player": [t[0] for t in tuples_list],
+        "Team": [t[1] for t in tuples_list],
+        "Pos": [t[2] for t in tuples_list],
+        "Salary": [t[3] for t in tuples_list],
+        "Proj_Pts": [t[4] for t in tuples_list],
+        "Ownership_%": [t[5] for t in tuples_list],
+        "Vegas_Total": [vegas_default] * len(tuples_list)
+    }
+
+# UNIVERSAL DRAFTKINGS / FANDUEL / YAHOO CSV AUTO-TRANSLATOR
+def smart_parse_dfs_csv(raw_df):
+    df_c = raw_df.copy()
+    col_map = {}
+    for c in df_c.columns:
+        cl = c.strip().lower()
+        if cl in ['name', 'nickname', 'player name', 'player', 'fighter', 'golfer', 'driver']:
+            col_map[c] = 'Player'
+        elif cl in ['salary', 'cost', 'dk salary', 'fd salary']:
+            col_map[c] = 'Salary'
+        elif cl in ['avgpointspergame', 'fppg', 'proj_pts', 'proj', 'points', 'projection', 'projected points']:
+            col_map[c] = 'Proj_Pts'
+        elif cl in ['position', 'pos', 'roster position']:
+            col_map[c] = 'Pos'
+        elif cl in ['teamabbrev', 'team', 'squad']:
+            col_map[c] = 'Team'
+        elif cl in ['ownership_%', 'ownership', 'own%', 'proj_own']:
+            col_map[c] = 'Ownership_%'
+            
+    df_c = df_c.rename(columns=col_map)
+    df_c = df_c.loc[:, ~df_c.columns.duplicated()]
+    
+    # If FanDuel has First Name + Last Name without Nickname
+    if 'Player' not in df_c.columns and 'First Name' in raw_df.columns and 'Last Name' in raw_df.columns:
+        df_c['Player'] = raw_df['First Name'].astype(str) + " " + raw_df['Last Name'].astype(str)
+        
+    if 'Salary' in df_c.columns:
+        df_c['Salary'] = df_c['Salary'].astype(str).str.replace('$', '', regex=False).str.replace(',', '', regex=False)
+        df_c['Salary'] = pd.to_numeric(df_c['Salary'], errors='coerce').fillna(5000).astype(int)
+    else:
+        df_c['Salary'] = 6000
+        
+    if 'Proj_Pts' in df_c.columns:
+        df_c['Proj_Pts'] = pd.to_numeric(df_c['Proj_Pts'], errors='coerce').fillna(12.0)
+    else:
+        df_c['Proj_Pts'] = (df_c['Salary'] / 350.0).round(1)
+        
+    if 'Pos' not in df_c.columns:
+        df_c['Pos'] = 'FLEX'
+    if 'Team' not in df_c.columns:
+        df_c['Team'] = 'USA'
+    if 'Ownership_%' not in df_c.columns:
+        # Auto-estimate ownership from projected points if raw DK/FD CSV doesn't include it
+        max_pts = max(df_c['Proj_Pts'].max(), 1.0)
+        df_c['Ownership_%'] = ((df_c['Proj_Pts'] / max_pts) * 32.0).clip(lower=2.5, upper=40.0).round(1)
+    if 'Vegas_Total' not in df_c.columns:
+        df_c['Vegas_Total'] = 50.0
+        
+    # Filter out 0-point injured/inactive rows if pool is large
+    valid_df = df_c[df_c['Proj_Pts'] > 0].copy()
+    if len(valid_df) >= 10:
+        df_c = valid_df.reset_index(drop=True)
+        
+    return df_c
+
 SPORTS_DATA = {
-    "🏈 NFL — American Football (DraftKings / FanDuel / PrizePicks)": {
+    "🏈 NFL — American Football (DraftKings / FanDuel — 36 Players Active)": {
         "default_format_idx": 2,
         "live_matches": [
             {"title": "Kansas City Chiefs (KC) vs Buffalo Bills (BUF)", "status": "🔴 LIVE • Q2 (14 - 10) | CBS / Main Slate", "info": "🔥 Vegas Total: 52.5 Pts | Spread: KC -2.5"},
             {"title": "San Francisco 49ers (SF) vs Philadelphia Eagles (PHI)", "status": "🟢 TODAY • Kickoff 4:25 PM EST", "info": "⚡ Vegas Total: 48.0 Pts | Spread: SF -3.0"},
-            {"title": "Miami Dolphins (MIA) vs Los Angeles Chargers (LAC)", "status": "🟢 TODAY • Sunday Night Football 8:20 PM EST", "info": "🚀 Vegas Total: 50.5 Pts | High Pace Dome Game"}
+            {"title": "Miami Dolphins (MIA) vs Los Angeles Chargers (LAC)", "status": "🟢 TODAY • Sunday Night Football 8:20 PM EST", "info": "🚀 Vegas Total: 50.5 Pts | High Pace Dome Game"},
+            {"title": "Detroit Lions (DET) vs Dallas Cowboys (DAL)", "status": "🟢 TODAY • Late Window 4:25 PM EST", "info": "🔥 Vegas Total: 53.0 Pts | Dome Shootout"}
         ],
         "upcoming_matches": [
-            {"title": "Dallas Cowboys (DAL) vs Detroit Lions (DET)", "time": "⏳ Tomorrow • 8:15 PM EST (Monday Night Football)", "info": "📊 Early Vegas Line: 51.0 Pts | Dome Shootout"},
-            {"title": "Baltimore Ravens (BAL) vs Cincinnati Bengals (CIN)", "time": "⏳ Thursday Night • 8:15 PM EST (Prime Video)", "info": "📊 Early Vegas Line: 49.5 Pts | AFC North Rivalry"}
+            {"title": "Baltimore Ravens (BAL) vs Cincinnati Bengals (CIN)", "time": "⏳ Tomorrow • 8:15 PM EST (Monday Night Football)", "info": "📊 Early Vegas Line: 51.5 Pts | AFC North Rivalry"},
+            {"title": "Houston Texans (HOU) vs Green Bay Packers (GB)", "time": "⏳ Thursday Night • 8:15 PM EST (Prime Video)", "info": "📊 Early Vegas Line: 49.0 Pts | Young QB Showdown"}
         ],
-        "players": {
-            "ID": range(1, 17),
-            "Player": ["P. Mahomes", "J. Allen", "C. McCaffrey", "A. Ekeler", "T. Hill", "J. Jefferson", "T. Kelce", "S. Diggs", "C. Kupp", "A. Brown", "J. Hurts", "D. Achane", "G. Kittle", "J. Cook", "B. Purdy", "SF Defense"],
-            "Team": ["KC", "BUF", "SF", "LAC", "MIA", "MIN", "KC", "BUF", "LAR", "PHI", "PHI", "MIA", "SF", "BUF", "SF", "SF"],
-            "Pos": ["QB", "QB", "RB", "RB", "WR", "WR", "TE", "WR", "WR", "WR", "QB", "RB", "TE", "RB", "QB", "DST"],
-            "Salary": [8200, 8000, 9000, 8100, 8600, 8400, 7400, 7800, 8000, 7700, 7900, 7300, 6600, 6900, 6500, 5800],
-            "Proj_Pts": [24.5, 23.8, 22.5, 19.5, 22.0, 20.5, 18.0, 19.0, 20.0, 18.5, 23.0, 18.8, 16.2, 17.5, 18.0, 12.5],
-            "Ownership_%": [15.5, 14.0, 35.0, 18.5, 25.0, 22.0, 30.0, 15.0, 10.0, 14.5, 16.0, 21.0, 12.5, 13.0, 11.0, 14.0],
-            "Vegas_Total": [52.5] * 16
-        }
+        "players": build_roster_pool([
+            ("P. Mahomes", "KC", "QB", 8200, 24.8, 18.5), ("J. Allen", "BUF", "QB", 8100, 24.5, 19.0),
+            ("J. Hurts", "PHI", "QB", 7900, 23.6, 16.5), ("L. Jackson", "BAL", "QB", 8000, 24.1, 17.0),
+            ("J. Burrow", "CIN", "QB", 7400, 21.8, 14.0), ("B. Purdy", "SF", "QB", 6600, 19.5, 12.5),
+            ("D. Prescott", "DAL", "QB", 6800, 20.2, 11.0), ("J. Goff", "DET", "QB", 6500, 19.2, 10.5),
+            ("C. McCaffrey", "SF", "RB", 9000, 23.5, 32.0), ("S. Barkley", "PHI", "RB", 8300, 21.2, 26.5),
+            ("D. Achane", "MIA", "RB", 7600, 19.8, 22.0), ("J. Gibbs", "DET", "RB", 7500, 19.4, 20.5),
+            ("D. Henry", "BAL", "RB", 7800, 20.1, 24.0), ("J. Cook", "BUF", "RB", 6900, 17.6, 15.5),
+            ("I. Pacheco", "KC", "RB", 6700, 17.2, 16.0), ("J.K. Dobbins", "LAC", "RB", 6100, 15.8, 14.5),
+            ("D. Montgomery", "DET", "RB", 6300, 16.2, 13.0), ("R. Mostert", "MIA", "RB", 5600, 13.9, 9.5),
+            ("C. Lamb", "DAL", "WR", 8800, 22.8, 28.0), ("T. Hill", "MIA", "WR", 8600, 22.1, 25.5),
+            ("A. St. Brown", "DET", "WR", 8500, 21.9, 27.0), ("J. Chase", "CIN", "WR", 8400, 21.5, 24.0),
+            ("A.J. Brown", "PHI", "WR", 8000, 20.4, 21.0), ("D. Samuel", "SF", "WR", 7300, 18.2, 17.5),
+            ("J. Waddle", "MIA", "WR", 6600, 16.5, 14.0), ("D. Smith", "PHI", "WR", 6700, 16.8, 15.0),
+            ("B. Aiyuk", "SF", "WR", 6500, 16.1, 13.5), ("X. Worthy", "KC", "WR", 5800, 14.6, 16.5),
+            ("K. Shakir", "BUF", "WR", 5500, 13.8, 12.0), ("L. McConkey", "LAC", "WR", 5400, 13.5, 11.5),
+            ("T. Kelce", "KC", "TE", 6800, 17.4, 22.5), ("G. Kittle", "SF", "TE", 6300, 16.0, 18.0),
+            ("S. LaPorta", "DET", "TE", 6000, 15.2, 16.5), ("D. Kincaid", "BUF", "TE", 5300, 13.4, 14.0),
+            ("SF 49ers DST", "SF", "DST", 3600, 10.5, 19.0), ("KC Chiefs DST", "KC", "DST", 3400, 9.8, 15.0)
+        ], 52.5)
     },
-    "🏀 NBA — Pro Basketball (US & Canada Main Slate)": {
+    "🏀 NBA — Pro Basketball (US & Canada Main Slate — 36 Players Active)": {
         "default_format_idx": 1,
         "live_matches": [
             {"title": "Denver Nuggets (DEN) vs Los Angeles Lakers (LAL)", "status": "🔴 LIVE • 3rd Quarter (88 - 84) | TNT", "info": "🔥 Vegas Total: 234.5 Pts | Fast Pace Slate"},
             {"title": "Toronto Raptors (TOR) vs Boston Celtics (BOS)", "status": "🟢 TODAY • Tip-Off 7:30 PM EST (Scotiabank Arena)", "info": "⚡ Vegas Total: 228.0 Pts | Atlantic Division Clash"},
-            {"title": "Golden State Warriors (GSW) vs Phoenix Suns (PHX)", "status": "🟢 TODAY • Tip-Off 10:00 PM EST", "info": "🚀 Vegas Total: 236.0 Pts | Late Night Shootout"}
+            {"title": "Golden State Warriors (GSW) vs Phoenix Suns (PHX)", "status": "🟢 TODAY • Tip-Off 10:00 PM EST", "info": "🚀 Vegas Total: 236.0 Pts | Late Night Shootout"},
+            {"title": "Dallas Mavericks (DAL) vs Oklahoma City Thunder (OKC)", "status": "🟢 TODAY • Tip-Off 8:30 PM EST", "info": "🔥 Vegas Total: 233.5 Pts | MVP Showcase"}
         ],
         "upcoming_matches": [
-            {"title": "Milwaukee Bucks (MIL) vs New York Knicks (NYK)", "time": "⏳ Tomorrow • 7:30 PM EST (MSG)", "info": "📊 Early Total: 229.5 Pts | Giannis Probable"},
-            {"title": "Oklahoma City Thunder (OKC) vs Dallas Mavericks (DAL)", "time": "⏳ Tomorrow • 9:30 PM EST", "info": "📊 Early Total: 232.0 Pts | West Top Seed Battle"}
+            {"title": "Milwaukee Bucks (MIL) vs New York Knicks (NYK)", "time": "⏳ Tomorrow • 7:30 PM EST (MSG)", "info": "📊 Early Total: 229.5 Pts | Giannis vs Brunson"},
+            {"title": "Minnesota Timberwolves (MIN) vs Sacramento Kings (SAC)", "time": "⏳ Tomorrow • 10:00 PM EST", "info": "📊 Early Total: 231.0 Pts | High Tempo West Slate"}
         ],
-        "players": {
-            "ID": range(1, 17),
-            "Player": ["N. Jokic", "L. Doncic", "L. James", "J. Tatum", "S. Curry", "K. Durant", "A. Davis", "K. Irving", "D. Booker", "J. Murray", "J. Brown", "A. Reaves", "D. White", "M. Porter Jr.", "S. Barnes", "R.J. Barrett"],
-            "Team": ["DEN", "DAL", "LAL", "BOS", "GSW", "PHX", "LAL", "DAL", "PHX", "DEN", "BOS", "LAL", "BOS", "DEN", "TOR", "TOR"],
-            "Pos": ["C", "PG", "SF", "SF", "PG", "PF", "C", "SG", "SG", "PG", "SG", "SG", "PG", "SF", "PF", "SG"],
-            "Salary": [10200, 9900, 9200, 9300, 8900, 8800, 9400, 8300, 8500, 7700, 8000, 7000, 6800, 6500, 7800, 6900],
-            "Proj_Pts": [58.5, 56.0, 47.5, 49.0, 45.5, 46.0, 51.0, 42.0, 44.5, 39.5, 41.0, 35.5, 34.0, 32.5, 40.5, 34.5],
-            "Ownership_%": [28.0, 25.5, 18.0, 20.0, 22.5, 16.0, 19.5, 14.0, 15.0, 12.5, 15.5, 17.0, 13.0, 11.0, 16.5, 12.0],
-            "Vegas_Total": [234.5] * 16
-        }
+        "players": build_roster_pool([
+            ("N. Jokic", "DEN", "C", 10600, 59.5, 29.0), ("L. Doncic", "DAL", "PG", 10400, 57.8, 27.5),
+            ("S. Gilgeous-Alexander", "OKC", "PG", 10000, 54.5, 25.0), ("G. Antetokounmpo", "MIL", "PF", 10200, 56.0, 26.0),
+            ("A. Davis", "LAL", "C", 9600, 51.5, 22.5), ("J. Tatum", "BOS", "SF", 9400, 49.8, 21.0),
+            ("L. James", "LAL", "SF", 9100, 47.5, 19.5), ("S. Curry", "GSW", "PG", 8900, 46.2, 23.0),
+            ("K. Durant", "PHX", "PF", 8800, 45.8, 18.5), ("D. Booker", "PHX", "SG", 8600, 44.5, 17.0),
+            ("K. Irving", "DAL", "SG", 8300, 42.5, 16.5), ("J. Brunson", "NYK", "PG", 8700, 45.0, 20.0),
+            ("A. Edwards", "MIN", "SG", 8800, 45.5, 21.5), ("D. Sabonis", "SAC", "C", 9000, 47.0, 18.0),
+            ("S. Barnes", "TOR", "PF", 8100, 41.5, 17.5), ("J. Brown", "BOS", "SG", 7900, 40.2, 16.0),
+            ("J. Murray", "DEN", "PG", 7700, 39.5, 15.0), ("C. Holmgren", "OKC", "C", 7600, 39.0, 19.0),
+            ("J. Williams", "OKC", "SF", 7400, 38.0, 16.5), ("D. Lillard", "MIL", "PG", 8000, 41.0, 15.5),
+            ("K. Towns", "NYK", "C", 7800, 40.0, 17.0), ("R.J. Barrett", "TOR", "SF", 6900, 35.5, 14.5),
+            ("I. Quickley", "TOR", "PG", 6800, 35.0, 14.0), ("A. Reaves", "LAL", "SG", 6600, 34.2, 18.0),
+            ("D. White", "BOS", "PG", 6500, 33.8, 15.5), ("M. Porter Jr.", "DEN", "SF", 6300, 32.5, 13.0),
+            ("A. Gordon", "DEN", "PF", 6100, 31.5, 12.5), ("B. Beal", "PHX", "SG", 6400, 33.0, 11.5),
+            ("K. Thompson", "DAL", "SF", 5800, 29.5, 16.0), ("J. Kuminga", "GSW", "PF", 5900, 30.2, 15.0),
+            ("D. Green", "GSW", "C", 5600, 28.5, 12.0), ("J. Poeltl", "TOR", "C", 5700, 29.0, 13.5),
+            ("D. Lively II", "DAL", "C", 5200, 26.8, 14.0), ("A. Wiggins", "GSW", "SF", 5100, 26.0, 10.5),
+            ("P. Pritchard", "BOS", "PG", 4600, 23.5, 11.0), ("D. Knecht", "LAL", "SG", 4400, 22.8, 15.5)
+        ], 234.5)
     },
-    "🏒 NHL — Ice Hockey (Canada & USA Prime Slate)": {
+    "🏒 NHL — Ice Hockey (Canada & USA Prime Slate — 36 Players Active)": {
         "default_format_idx": 1,
         "live_matches": [
             {"title": "Edmonton Oilers (EDM) vs Toronto Maple Leafs (TOR)", "status": "🔴 LIVE • 2nd Period (3 - 2) | Hockey Night in Canada", "info": "🔥 Goal Total: 6.5 | Power-Play Heavy Match"},
             {"title": "Montreal Canadiens (MTL) vs Boston Bruins (BOS)", "status": "🟢 TODAY • Puck Drop 7:00 PM EST", "info": "⚡ Goal Total: 6.0 | Original Six Rivalry"},
-            {"title": "Vancouver Canucks (VAN) vs Vegas Golden Knights (VGK)", "status": "🟢 TODAY • Puck Drop 10:00 PM EST", "info": "🚀 Goal Total: 6.5 | Pacific Division Showdown"}
+            {"title": "Vancouver Canucks (VAN) vs Colorado Avalanche (COL)", "status": "🟢 TODAY • Puck Drop 10:00 PM EST", "info": "🚀 Goal Total: 6.5 | High Shot Volume Slate"}
         ],
         "upcoming_matches": [
-            {"title": "Winnipeg Jets (WPG) vs Colorado Avalanche (COL)", "time": "⏳ Tomorrow • 9:00 PM EST", "info": "📊 Early Goal Line: 6.5 | High Shot Volume"},
+            {"title": "Winnipeg Jets (WPG) vs Vegas Golden Knights (VGK)", "time": "⏳ Tomorrow • 8:00 PM EST", "info": "📊 Early Goal Line: 6.0 | Central vs Pacific"},
             {"title": "New York Rangers (NYR) vs Florida Panthers (FLA)", "time": "⏳ Tomorrow • 7:30 PM EST", "info": "📊 Early Goal Line: 6.0 | East Finals Rematch"}
         ],
-        "players": {
-            "ID": range(1, 17),
-            "Player": ["C. McDavid", "N. MacKinnon", "A. Matthews", "L. Draisaitl", "D. Pastrnak", "C. Makar", "M. Marner", "M. Rantanen", "A. Panarin", "E. Bouchard", "W. Nylander", "B. Marchand", "Z. Hyman", "D. Toews", "Q. Hughes", "N. Suzuki"],
-            "Team": ["EDM", "COL", "TOR", "EDM", "BOS", "COL", "TOR", "COL", "NYR", "EDM", "TOR", "BOS", "EDM", "COL", "VAN", "MTL"],
-            "Pos": ["C", "C", "C", "W", "W", "D", "W", "W", "W", "D", "W", "W", "W", "D", "D", "C"],
-            "Salary": [9600, 9400, 9100, 8800, 8900, 8400, 8000, 8500, 8300, 7700, 8100, 7500, 7800, 6700, 8200, 7200],
-            "Proj_Pts": [22.5, 21.8, 20.5, 19.0, 19.5, 18.2, 17.0, 18.5, 18.0, 16.5, 17.5, 15.8, 16.8, 14.2, 17.8, 15.2],
-            "Ownership_%": [31.0, 28.0, 24.5, 20.0, 22.0, 25.0, 15.0, 18.0, 16.5, 14.0, 16.0, 12.5, 17.5, 10.5, 19.0, 11.5],
-            "Vegas_Total": [6.5] * 16
-        }
+        "players": build_roster_pool([
+            ("C. McDavid", "EDM", "C", 9600, 23.5, 32.0), ("N. MacKinnon", "COL", "C", 9500, 23.0, 29.5),
+            ("A. Matthews", "TOR", "C", 9300, 22.2, 27.0), ("L. Draisaitl", "EDM", "W", 8900, 20.5, 23.0),
+            ("D. Pastrnak", "BOS", "W", 9000, 21.0, 24.5), ("C. Makar", "COL", "D", 8600, 19.8, 26.0),
+            ("M. Rantanen", "COL", "W", 8500, 19.5, 20.0), ("A. Panarin", "NYR", "W", 8400, 19.2, 19.5),
+            ("W. Nylander", "TOR", "W", 8200, 18.6, 18.0), ("M. Marner", "TOR", "W", 8000, 18.0, 17.5),
+            ("Q. Hughes", "VAN", "D", 8100, 18.4, 21.0), ("E. Bouchard", "EDM", "D", 7800, 17.6, 19.0),
+            ("Z. Hyman", "EDM", "W", 7700, 17.4, 18.5), ("J.T. Miller", "VAN", "C", 7900, 17.9, 16.5),
+            ("E. Pettersson", "VAN", "C", 7500, 16.8, 14.5), ("B. Marchand", "BOS", "W", 7400, 16.5, 15.0),
+            ("C. Caufield", "MTL", "W", 7200, 16.0, 14.0), ("N. Suzuki", "MTL", "C", 7000, 15.6, 13.5),
+            ("K. Connor", "WPG", "W", 7600, 17.1, 16.0), ("J. Eichel", "VGK", "C", 7800, 17.5, 17.0),
+            ("M. Tkachuk", "FLA", "W", 8000, 18.1, 18.5), ("S. Reinhart", "FLA", "W", 7900, 17.8, 17.0),
+            ("A. Fox", "NYR", "D", 7100, 15.8, 15.5), ("C. McAvoy", "BOS", "D", 6800, 15.0, 13.0),
+            ("M. Rielly", "TOR", "D", 6600, 14.6, 14.0), ("D. Toews", "COL", "D", 6400, 14.1, 12.0),
+            ("B. Boeser", "VAN", "W", 6900, 15.3, 13.5), ("R. Nugent-Hopkins", "EDM", "C", 6500, 14.4, 12.5),
+            ("J. Tavares", "TOR", "C", 6700, 14.8, 13.0), ("J. Slafkovsky", "MTL", "W", 5800, 12.9, 11.0),
+            ("M. Knies", "TOR", "W", 5400, 12.1, 14.5), ("V. Arvidsson", "EDM", "W", 5600, 12.5, 11.5),
+            ("I. Shesterkin", "NYR", "G", 8300, 18.8, 22.0), ("C. Hellebuyck", "WPG", "G", 8100, 18.2, 20.0),
+            ("J. Swayman", "BOS", "G", 7900, 17.5, 17.5), ("S. Skinner", "EDM", "G", 7600, 16.8, 16.0)
+        ], 6.5)
     },
-    "⚾ MLB — Major League Baseball (USA & Toronto Slate)": {
+    "⚾ MLB — Major League Baseball (USA & Toronto Slate — 36 Players Active)": {
         "default_format_idx": 2,
         "live_matches": [
             {"title": "Los Angeles Dodgers (LAD) vs New York Yankees (NYY)", "status": "🔴 LIVE • Top 5th Inning (4 - 2)", "info": "🔥 Run Total: 9.5 | Wind Blowing Out 12 mph"},
-            {"title": "Toronto Blue Jays (TOR) vs Philadelphia Phillies (PHI)", "status": "🟢 TODAY • First Pitch 7:07 PM EST (Rogers Centre)", "info": "⚡ Run Total: 8.5 | High Strikeout & HR Upside"}
+            {"title": "Toronto Blue Jays (TOR) vs Philadelphia Phillies (PHI)", "status": "🟢 TODAY • First Pitch 7:07 PM EST (Rogers Centre)", "info": "⚡ Run Total: 8.5 | High Strikeout & HR Upside"},
+            {"title": "Atlanta Braves (ATL) vs Boston Red Sox (BOS)", "status": "🟢 TODAY • First Pitch 7:10 PM EST", "info": "🚀 Run Total: 9.5 | Elite Hitter Park"}
         ],
         "upcoming_matches": [
-            {"title": "Houston Astros (HOU) vs Texas Rangers (TEX)", "time": "⏳ Tomorrow • 8:05 PM EST", "info": "📊 Early Run Total: 9.0 | Roof Closed"},
-            {"title": "Atlanta Braves (ATL) vs Boston Red Sox (BOS)", "time": "⏳ Tomorrow • 7:10 PM EST (Fenway Park)", "info": "📊 Early Run Total: 9.5 | Bullpen Game"}
+            {"title": "Houston Astros (HOU) vs Texas Rangers (TEX)", "time": "⏳ Tomorrow • 8:05 PM EST", "info": "📊 Early Run Total: 9.0 | Lone Star Series"},
+            {"title": "Baltimore Orioles (BAL) vs San Diego Padres (SD)", "time": "⏳ Tomorrow • 6:40 PM EST", "info": "📊 Early Run Total: 8.5 | Star Infield Slate"}
         ],
-        "players": {
-            "ID": range(1, 17),
-            "Player": ["S. Ohtani", "A. Judge", "M. Betts", "J. Soto", "F. Freeman", "R. Acuna", "B. Harper", "G. Cole", "T. Glasnow", "M. Olson", "T. Turner", "K. Schwarber", "A. Riley", "G. Stanton", "V. Guerrero Jr.", "B. Bichette"],
-            "Team": ["LAD", "NYY", "LAD", "NYY", "LAD", "ATL", "PHI", "NYY", "LAD", "ATL", "PHI", "PHI", "ATL", "NYY", "TOR", "TOR"],
-            "Pos": ["OF", "OF", "SS", "OF", "1B", "OF", "1B", "P", "P", "1B", "SS", "OF", "3B", "OF", "1B", "SS"],
-            "Salary": [6500, 6400, 5900, 6100, 5600, 6200, 5800, 9500, 9200, 5400, 5500, 5300, 5200, 4900, 5700, 5100],
-            "Proj_Pts": [14.5, 14.0, 12.5, 13.0, 11.8, 13.5, 12.2, 24.0, 22.5, 11.0, 11.5, 11.2, 10.8, 10.2, 12.0, 10.5],
-            "Ownership_%": [30.0, 26.0, 18.5, 22.0, 15.0, 24.0, 17.0, 32.0, 25.0, 12.0, 14.0, 13.5, 11.5, 9.0, 18.0, 11.0],
-            "Vegas_Total": [9.5] * 16
-        }
+        "players": build_roster_pool([
+            ("G. Cole", "NYY", "P", 9800, 24.5, 28.0), ("T. Glasnow", "LAD", "P", 9500, 23.8, 26.5),
+            ("Z. Wheeler", "PHI", "P", 9600, 24.0, 27.0), ("C. Sale", "ATL", "P", 9400, 23.5, 25.0),
+            ("K. Gausman", "TOR", "P", 8600, 20.5, 18.5), ("Y. Yamamoto", "LAD", "P", 8400, 19.8, 17.0),
+            ("S. Ohtani", "LAD", "OF", 6600, 15.2, 32.0), ("A. Judge", "NYY", "OF", 6500, 14.9, 30.5),
+            ("J. Soto", "NYY", "OF", 6200, 13.8, 25.0), ("M. Betts", "LAD", "SS", 6000, 13.4, 23.5),
+            ("B. Harper", "PHI", "1B", 5900, 13.1, 22.0), ("V. Guerrero Jr.", "TOR", "1B", 5800, 12.8, 21.0),
+            ("F. Freeman", "LAD", "1B", 5700, 12.6, 19.5), ("R. Devers", "BOS", "3B", 5600, 12.4, 18.0),
+            ("T. Turner", "PHI", "SS", 5500, 12.1, 17.5), ("K. Schwarber", "PHI", "OF", 5400, 11.9, 19.0),
+            ("M. Olson", "ATL", "1B", 5400, 11.8, 16.5), ("A. Riley", "ATL", "3B", 5300, 11.6, 16.0),
+            ("M. Ozuna", "ATL", "OF", 5500, 12.0, 18.0), ("J. Duran", "BOS", "OF", 5600, 12.3, 20.0),
+            ("T. Hernandez", "LAD", "OF", 5200, 11.4, 15.5), ("G. Stanton", "NYY", "OF", 5000, 11.0, 14.0),
+            ("B. Bichette", "TOR", "SS", 4900, 10.6, 13.0), ("W. Smith", "LAD", "C", 5100, 11.1, 15.0),
+            ("J. Realmuto", "PHI", "C", 4800, 10.4, 12.5), ("A. Chisholm Jr.", "NYY", "3B", 5100, 11.2, 16.5),
+            ("G. Torres", "NYY", "2B", 4600, 9.9, 12.0), ("M. Muncy", "LAD", "3B", 4700, 10.2, 13.5),
+            ("N. Castellanos", "PHI", "OF", 4500, 9.7, 11.0), ("A. Bohm", "PHI", "3B", 4600, 9.8, 11.5),
+            ("G. Springer", "TOR", "OF", 4400, 9.5, 10.5), ("T. O'Neill", "BOS", "OF", 4700, 10.1, 13.0),
+            ("O. Albies", "ATL", "2B", 5000, 10.8, 14.5), ("M. Harris II", "ATL", "OF", 4800, 10.3, 13.0),
+            ("A. Volpe", "NYY", "SS", 4300, 9.3, 10.0), ("G. Lux", "LAD", "2B", 4000, 8.8, 9.5)
+        ], 9.5)
     },
-    "🏈🏀 NCAA — College Football & Basketball (US CFB / CBB)": {
+    "🏈🏀 NCAA — College Football & Basketball (US CFB / CBB — 36 Players Active)": {
         "default_format_idx": 1,
         "live_matches": [
             {"title": "Georgia Bulldogs (UGA) vs Alabama Crimson Tide (ALA)", "status": "🔴 LIVE • 2nd Quarter (17 - 14) | SEC on ABC", "info": "🔥 Vegas Total: 54.5 Pts | Spread: UGA -2.0"},
-            {"title": "Ohio State Buckeyes (OSU) vs Oregon Ducks (ORE)", "status": "🟢 TODAY • Kickoff 7:30 PM EST", "info": "⚡ Vegas Total: 56.0 Pts | Big Ten Shootout"}
+            {"title": "Ohio State Buckeyes (OSU) vs Oregon Ducks (ORE)", "status": "🟢 TODAY • Kickoff 7:30 PM EST", "info": "⚡ Vegas Total: 56.0 Pts | Big Ten Shootout"},
+            {"title": "Texas Longhorns (TEX) vs Miami Hurricanes (MIA)", "status": "🟢 TODAY • Kickoff 3:30 PM EST", "info": "🚀 Vegas Total: 58.5 Pts | High Tempo Offense"}
         ],
         "upcoming_matches": [
-            {"title": "Texas Longhorns (TEX) vs Oklahoma Sooners (OU)", "time": "⏳ Saturday • 3:30 PM EST (Red River Rivalry)", "info": "📊 Early Vegas Line: 58.5 Pts | High Tempo Offense"},
-            {"title": "Duke Blue Devils vs UNC Tar Heels (College Basketball)", "time": "⏳ Upcoming Prime Slate • 9:00 PM EST (ESPN)", "info": "📊 Early Total: 154.5 Pts | Rivalry Classic"}
+            {"title": "Duke Blue Devils vs UNC Tar Heels (College Basketball)", "time": "⏳ Tomorrow • 9:00 PM EST (ESPN)", "info": "📊 Early Total: 154.5 Pts | Tobacco Road Rivalry"},
+            {"title": "Kansas Jayhawks vs Kentucky Wildcats (CBB Showcase)", "time": "⏳ Tomorrow • 7:00 PM EST", "info": "📊 Early Total: 158.0 Pts | Blue Bloods Classic"}
         ],
-        "players": {
-            "ID": range(1, 17),
-            "Player": ["C. Beck", "J. Milroe", "Q. Ewers", "D. Gabriel", "J. Smith", "R. Williams", "T. Henderson", "A. Jeanty", "C. Ward", "T. Hunter", "S. Sanders", "O. Hampton", "C. Flagg", "R. Davis", "H. Dickinson", "M. Sears"],
-            "Team": ["UGA", "ALA", "TEX", "ORE", "OSU", "ALA", "OSU", "BSU", "MIA", "COL", "COL", "UNC", "DUKE", "UNC", "KAN", "ALA"],
-            "Pos": ["QB", "QB", "QB", "QB", "WR", "WR", "RB", "RB", "QB", "WR", "QB", "RB", "FWD", "G", "C", "G"],
-            "Salary": [9200, 9400, 8900, 9000, 8600, 8500, 8200, 9600, 9100, 8800, 8700, 8000, 8400, 7900, 8100, 7700],
-            "Proj_Pts": [28.5, 31.0, 26.5, 27.8, 24.0, 23.5, 22.0, 33.5, 29.0, 25.5, 26.0, 21.5, 38.0, 34.5, 36.0, 33.0],
-            "Ownership_%": [24.0, 31.0, 20.0, 22.5, 26.0, 25.0, 18.0, 38.0, 23.0, 27.0, 19.5, 15.0, 29.0, 17.0, 21.0, 16.0],
-            "Vegas_Total": [55.0] * 16
-        }
+        "players": build_roster_pool([
+            ("A. Jeanty", "BSU", "RB", 9600, 33.5, 36.0), ("J. Milroe", "ALA", "QB", 9400, 31.0, 30.0),
+            ("C. Ward", "MIA", "QB", 9200, 29.8, 27.5), ("D. Gabriel", "ORE", "QB", 9000, 28.5, 25.0),
+            ("Q. Ewers", "TEX", "QB", 8800, 27.2, 22.0), ("C. Beck", "UGA", "QB", 8600, 26.5, 20.5),
+            ("S. Sanders", "COL", "QB", 8700, 27.0, 23.0), ("W. Howard", "OSU", "QB", 8300, 25.2, 18.5),
+            ("T. Hunter", "COL", "WR", 8900, 26.8, 29.0), ("J. Smith", "OSU", "WR", 8600, 25.4, 26.5),
+            ("R. Williams", "ALA", "WR", 8500, 25.0, 25.5), ("T. McMillan", "ARI", "WR", 8400, 24.6, 22.0),
+            ("L. Burden III", "MIZ", "WR", 8100, 23.2, 19.0), ("E. Egbuka", "OSU", "WR", 7800, 22.0, 17.5),
+            ("I. Bond", "TEX", "WR", 7600, 21.4, 18.0), ("T. Johnson", "ORE", "WR", 7500, 21.0, 16.5),
+            ("X. Restrepo", "MIA", "WR", 7700, 21.8, 19.5), ("T. Henderson", "OSU", "RB", 8200, 23.8, 21.0),
+            ("Q. Judkins", "OSU", "RB", 7900, 22.5, 18.5), ("O. Hampton", "UNC", "RB", 8400, 24.8, 22.5),
+            ("DJ Giddens", "KSU", "RB", 7600, 21.5, 15.0), ("K. Singleton", "PSU", "RB", 7400, 20.8, 16.0),
+            ("T. Etienne", "UGA", "RB", 7300, 20.4, 17.0), ("J. James", "ORE", "RB", 7100, 19.8, 14.5),
+            ("D. Martinez", "MIA", "RB", 6800, 18.9, 13.5), ("J. Blue", "TEX", "RB", 6600, 18.2, 14.0),
+            ("T. Warren", "PSU", "TE", 7200, 20.1, 21.5), ("H. Fannin Jr.", "BGSU", "TE", 7000, 19.5, 18.0),
+            ("G. Helm", "TEX", "TE", 6200, 16.8, 13.0), ("C. Loveland", "MICH", "TE", 6100, 16.5, 12.5),
+            ("C. Flagg", "DUKE", "FWD", 9100, 39.5, 31.0), ("H. Dickinson", "KAN", "C", 8800, 37.5, 26.0),
+            ("R. Davis", "UNC", "G", 8500, 35.8, 24.0), ("M. Sears", "ALA", "G", 8400, 35.2, 23.0),
+            ("J. Broome", "AUB", "C", 8600, 36.4, 24.5), ("K. Kriisa", "UK", "G", 5800, 25.0, 11.5)
+        ], 56.0)
     },
-    "🥊 UFC / MMA — Las Vegas Fight Night & PPV": {
+    "🥊 UFC / MMA — Las Vegas Fight Night & PPV (36 Fighters Active)": {
         "default_format_idx": 0,
         "live_matches": [
             {"title": "Alex Pereira vs Khalil Rountree Jr. (T-Mobile Arena Vegas)", "status": "🔴 LIVE • Main Card Underway on ESPN+ PPV", "info": "🔥 KO/TKO Odds: -280 | 5-Round Championship"},
@@ -581,18 +702,28 @@ SPORTS_DATA = {
             {"title": "Jon Jones vs Stipe Miocic (Madison Square Garden NY)", "time": "⏳ Saturday Night • 10:00 PM EST (PPV)", "info": "📊 Heavyweight Title | Finish Rate: 82%"},
             {"title": "Islam Makhachev vs Arman Tsarukyan", "time": "⏳ Next PPV Slate • 10:00 PM EST", "info": "📊 Elite Grappling & Bonus Points Ceiling"}
         ],
-        "players": {
-            "ID": range(1, 17),
-            "Player": ["A. Pereira", "I. Makhachev", "J. Jones", "S. O'Malley", "I. Topuria", "M. Holloway", "C. Oliveira", "D. Du Plessis", "K. Chimaev", "J. Gaethje", "A. Volkanovski", "D. Poirier", "T. Aspinall", "M. Dvalishvili", "B. Nickal", "C. Covington"],
-            "Team": ["UFC"] * 16,
-            "Pos": ["MMA"] * 16,
-            "Salary": [9500, 9400, 9300, 8900, 9100, 8500, 8700, 8400, 9000, 8200, 8300, 8000, 9200, 8600, 8800, 7800],
-            "Proj_Pts": [105.0, 98.5, 96.0, 91.0, 94.5, 86.0, 89.0, 85.5, 95.0, 82.0, 83.5, 80.0, 97.0, 88.0, 92.0, 79.0],
-            "Ownership_%": [35.0, 32.0, 28.0, 24.0, 26.5, 19.0, 21.0, 17.5, 29.0, 15.0, 16.0, 14.5, 30.0, 20.5, 25.5, 14.0],
-            "Vegas_Total": [2.5] * 16
-        }
+        "players": build_roster_pool([
+            ("A. Pereira", "UFC", "MMA", 9600, 106.5, 36.0), ("I. Makhachev", "UFC", "MMA", 9500, 102.0, 33.0),
+            ("J. Jones", "UFC", "MMA", 9400, 99.5, 30.0), ("I. Topuria", "UFC", "MMA", 9300, 98.0, 29.0),
+            ("T. Aspinall", "UFC", "MMA", 9400, 101.0, 32.5), ("K. Chimaev", "UFC", "MMA", 9200, 96.5, 28.5),
+            ("S. O'Malley", "UFC", "MMA", 8900, 91.5, 24.5), ("M. Dvalishvili", "UFC", "MMA", 8800, 92.0, 25.0),
+            ("D. Du Plessis", "UFC", "MMA", 8700, 89.5, 22.0), ("B. Muhammad", "UFC", "MMA", 8600, 88.0, 19.5),
+            ("S. Rakhmonov", "UFC", "MMA", 9100, 95.0, 27.5), ("B. Nickal", "UFC", "MMA", 9000, 94.0, 26.5),
+            ("M. Holloway", "UFC", "MMA", 8500, 87.5, 23.0), ("C. Oliveira", "UFC", "MMA", 8600, 88.5, 24.0),
+            ("A. Tsarukyan", "UFC", "MMA", 8400, 86.0, 20.0), ("J. Gaethje", "UFC", "MMA", 8300, 84.5, 21.0),
+            ("D. Poirier", "UFC", "MMA", 8200, 83.0, 19.0), ("A. Volkanovski", "UFC", "MMA", 8400, 85.5, 20.5),
+            ("L. Edwards", "UFC", "MMA", 8100, 81.5, 17.5), ("S. Strickland", "UFC", "MMA", 8200, 82.5, 18.5),
+            ("I. Adesanya", "UFC", "MMA", 8300, 84.0, 19.5), ("J. Prochazka", "UFC", "MMA", 8000, 80.5, 17.0),
+            ("M. Ankalaev", "UFC", "MMA", 8700, 89.0, 21.5), ("C. Gane", "UFC", "MMA", 8500, 86.5, 18.0),
+            ("D. Lopes", "UFC", "MMA", 8500, 87.0, 23.5), ("P. Pimblett", "UFC", "MMA", 7900, 79.5, 21.0),
+            ("U. Nurmagomedov", "UFC", "MMA", 8800, 90.5, 24.0), ("C. Sandhagen", "UFC", "MMA", 8000, 80.0, 16.5),
+            ("P. Yan", "UFC", "MMA", 8100, 81.0, 17.5), ("B. Moreno", "UFC", "MMA", 7800, 78.0, 15.5),
+            ("A. Pantoja", "UFC", "MMA", 8600, 88.0, 20.0), ("K. Rountree Jr.", "UFC", "MMA", 6800, 68.5, 12.5),
+            ("S. Miocic", "UFC", "MMA", 6900, 69.5, 13.0), ("M. Chandler", "UFC", "MMA", 7400, 74.5, 16.0),
+            ("D. Hooker", "UFC", "MMA", 7500, 75.5, 15.5), ("R. Whittaker", "UFC", "MMA", 7700, 77.0, 16.5)
+        ], 2.5)
     },
-    "⛳ PGA Tour — US & Canadian Open Fantasy Golf": {
+    "⛳ PGA Tour — US & Canadian Open Fantasy Golf (36 Golfers Active)": {
         "default_format_idx": 0,
         "live_matches": [
             {"title": "The Players Championship — TPC Sawgrass Round 3", "status": "🔴 LIVE • Leaders at -12 Under Par (NBC/Golf Channel)", "info": "🔥 Birdie Fest | Soft Greens & Low Wind"},
@@ -602,18 +733,28 @@ SPORTS_DATA = {
             {"title": "The Masters Tournament — Augusta National", "time": "⏳ Upcoming Thursday • 7:30 AM EST", "info": "📊 Major Championship | $20M Purse"},
             {"title": "U.S. Open Championship — Pinehurst No. 2", "time": "⏳ Next Major Slate", "info": "📊 Driving Accuracy & Scrambling Crucial"}
         ],
-        "players": {
-            "ID": range(1, 17),
-            "Player": ["S. Scheffler", "R. McIlroy", "X. Schauffele", "J. Rahm", "C. Morikawa", "V. Hovland", "L. Aberg", "B. DeChambeau", "W. Clark", "P. Cantlay", "H. Matsuyama", "T. Finau", "S. Theegala", "J. Thomas", "C. Conners", "N. Taylor"],
-            "Team": ["USA", "NIR", "USA", "ESP", "USA", "NOR", "SWE", "USA", "USA", "USA", "JPN", "USA", "USA", "USA", "CAN", "CAN"],
-            "Pos": ["GOLF"] * 16,
-            "Salary": [10400, 10000, 9600, 9400, 9000, 8700, 8900, 9200, 8300, 8500, 8400, 8100, 7800, 7900, 7700, 7500],
-            "Proj_Pts": [88.5, 84.0, 81.5, 79.0, 76.5, 73.0, 75.5, 78.0, 70.5, 72.0, 71.5, 69.0, 67.5, 68.0, 66.5, 65.0],
-            "Ownership_%": [34.0, 27.5, 25.0, 22.0, 19.5, 16.0, 21.0, 24.0, 13.5, 15.0, 16.5, 14.0, 12.0, 13.0, 14.5, 11.5],
-            "Vegas_Total": [72.0] * 16
-        }
+        "players": build_roster_pool([
+            ("S. Scheffler", "USA", "GOLF", 11000, 92.5, 35.0), ("X. Schauffele", "USA", "GOLF", 10500, 88.0, 30.0),
+            ("R. McIlroy", "NIR", "GOLF", 10300, 86.5, 28.5), ("J. Rahm", "ESP", "GOLF", 9900, 83.0, 24.0),
+            ("B. DeChambeau", "USA", "GOLF", 9800, 82.5, 26.5), ("C. Morikawa", "USA", "GOLF", 9600, 80.5, 23.0),
+            ("L. Aberg", "SWE", "GOLF", 9400, 79.0, 22.0), ("V. Hovland", "NOR", "GOLF", 9200, 77.5, 19.5),
+            ("P. Cantlay", "USA", "GOLF", 9000, 76.0, 18.5), ("W. Clark", "USA", "GOLF", 8800, 74.5, 17.0),
+            ("H. Matsuyama", "JPN", "GOLF", 8900, 75.5, 19.0), ("T. Fleetwood", "ENG", "GOLF", 8600, 73.0, 16.5),
+            ("S. Theegala", "USA", "GOLF", 8500, 72.5, 18.0), ("T. Finau", "USA", "GOLF", 8400, 71.5, 16.0),
+            ("J. Thomas", "USA", "GOLF", 8300, 71.0, 17.5), ("J. Spieth", "USA", "GOLF", 8200, 70.0, 16.5),
+            ("B. Koepka", "USA", "GOLF", 8700, 73.5, 18.0), ("S. Burns", "USA", "GOLF", 8100, 69.5, 15.0),
+            ("C. Young", "USA", "GOLF", 7900, 68.0, 14.5), ("M. Homa", "USA", "GOLF", 7800, 67.5, 13.5),
+            ("C. Conners", "CAN", "GOLF", 8000, 69.0, 16.0), ("S. Lowry", "IRE", "GOLF", 7900, 68.5, 15.5),
+            ("T. Hatton", "ENG", "GOLF", 8100, 69.5, 15.0), ("R. Henley", "USA", "GOLF", 7700, 67.0, 14.0),
+            ("B. Harman", "USA", "GOLF", 7500, 65.5, 12.5), ("K. Bradley", "USA", "GOLF", 7600, 66.0, 13.0),
+            ("S. Im", "KOR", "GOLF", 7800, 67.5, 14.5), ("T. Kim", "KOR", "GOLF", 7600, 66.5, 15.0),
+            ("N. Taylor", "CAN", "GOLF", 7300, 64.0, 12.0), ("A. Hadwin", "CAN", "GOLF", 7200, 63.5, 11.5),
+            ("M. Pendrith", "CAN", "GOLF", 7100, 63.0, 11.0), ("A. Bhatia", "USA", "GOLF", 7400, 65.0, 14.0),
+            ("D. Thompson", "USA", "GOLF", 7000, 62.0, 10.5), ("M. McNealy", "USA", "GOLF", 6900, 61.5, 10.0),
+            ("R. MacIntyre", "SCO", "GOLF", 7300, 64.0, 12.5), ("B. Horschel", "USA", "GOLF", 7200, 63.5, 12.0)
+        ], 72.0)
     },
-    "🏎️ NASCAR Cup Series & Formula 1 (North America Racing)": {
+    "🏎️ NASCAR Cup Series & Formula 1 (North America Racing — 36 Drivers Active)": {
         "default_format_idx": 0,
         "live_matches": [
             {"title": "NASCAR Cup Series — Daytona 500 / Talladega Superspeedway", "status": "🔴 LIVE • Stage 2 Green Flag | FOX Sports", "info": "🔥 Pack Racing | Place Differential & Laps Led Strategy"},
@@ -623,18 +764,28 @@ SPORTS_DATA = {
             {"title": "NASCAR Coca-Cola 600 — Charlotte Motor Speedway", "time": "⏳ Sunday • 6:00 PM EST", "info": "📊 400 Laps Dominator Points Available"},
             {"title": "F1 Canadian Grand Prix — Circuit Gilles Villeneuve Montreal", "time": "⏳ Sunday • 2:00 PM EST", "info": "📊 High Safety Car Probability"}
         ],
-        "players": {
-            "ID": range(1, 17),
-            "Player": ["K. Larson", "D. Hamlin", "W. Byron", "C. Elliott", "R. Blaney", "T. Reddick", "C. Bell", "J. Logano", "M. Verstappen", "L. Norris", "C. Leclerc", "L. Hamilton", "O. Piastri", "G. Russell", "S. Perez", "L. Stroll"],
-            "Team": ["HMS", "JGR", "HMS", "HMS", "PENSKE", "23XI", "JGR", "PENSKE", "RBR", "MCL", "FER", "MER", "MCL", "MER", "RBR", "AMR"],
-            "Pos": ["DRV"] * 16,
-            "Salary": [10200, 9900, 9500, 9100, 9300, 8900, 9000, 8600, 10400, 9800, 9200, 8700, 8800, 8400, 8000, 7400],
-            "Proj_Pts": [54.0, 51.5, 48.0, 45.5, 47.0, 44.5, 46.0, 42.0, 49.0, 46.5, 41.0, 38.5, 40.0, 36.5, 34.0, 29.5],
-            "Ownership_%": [34.0, 29.0, 25.0, 22.0, 24.0, 19.5, 21.0, 17.0, 36.0, 30.0, 20.0, 18.0, 19.0, 15.0, 13.0, 10.5],
-            "Vegas_Total": [55.0] * 16
-        }
+        "players": build_roster_pool([
+            ("K. Larson", "HMS", "DRV", 10500, 56.0, 34.0), ("D. Hamlin", "JGR", "DRV", 10100, 53.5, 29.5),
+            ("W. Byron", "HMS", "DRV", 9800, 51.0, 26.0), ("C. Bell", "JGR", "DRV", 9600, 49.5, 24.5),
+            ("R. Blaney", "PENSKE", "DRV", 9500, 49.0, 25.0), ("T. Reddick", "23XI", "DRV", 9300, 48.0, 23.0),
+            ("C. Elliott", "HMS", "DRV", 9100, 46.5, 22.0), ("J. Logano", "PENSKE", "DRV", 8900, 45.5, 20.5),
+            ("M. Truex Jr.", "JGR", "DRV", 8700, 44.0, 18.0), ("R. Chastain", "TRK", "DRV", 8500, 43.0, 17.5),
+            ("A. Bowman", "HMS", "DRV", 8300, 41.5, 16.5), ("B. Keselowski", "RFK", "DRV", 8200, 41.0, 16.0),
+            ("C. Buescher", "RFK", "DRV", 8000, 40.0, 15.0), ("T. Gibbs", "JGR", "DRV", 7900, 39.5, 15.5),
+            ("B. Wallace", "23XI", "DRV", 7700, 38.5, 14.5), ("K. Busch", "RCR", "DRV", 7600, 38.0, 14.0),
+            ("A. Cindric", "PENSKE", "DRV", 7200, 35.5, 12.5), ("D. Suarez", "TRK", "DRV", 7100, 35.0, 12.0),
+            ("C. Briscoe", "SHR", "DRV", 6900, 34.0, 11.5), ("M. McDowell", "FRM", "DRV", 6700, 33.0, 11.0),
+            ("M. Verstappen", "RBR", "DRV", 10600, 55.0, 36.0), ("L. Norris", "MCL", "DRV", 10200, 52.5, 31.0),
+            ("C. Leclerc", "FER", "DRV", 9700, 49.0, 25.5), ("O. Piastri", "MCL", "DRV", 9200, 46.0, 22.0),
+            ("C. Sainz", "FER", "DRV", 9000, 45.0, 20.0), ("L. Hamilton", "MER", "DRV", 8800, 44.0, 19.5),
+            ("G. Russell", "MER", "DRV", 8600, 43.0, 18.5), ("S. Perez", "RBR", "DRV", 8100, 39.5, 15.0),
+            ("F. Alonso", "AMR", "DRV", 7500, 36.5, 13.5), ("L. Stroll", "AMR", "DRV", 6800, 33.0, 11.0),
+            ("P. Gasly", "ALP", "DRV", 6600, 32.0, 10.5), ("A. Albon", "WIL", "DRV", 6500, 31.5, 10.0),
+            ("N. Hulkenberg", "HAAS", "DRV", 6400, 31.0, 10.5), ("Y. Tsunoda", "RB", "DRV", 6300, 30.5, 9.5),
+            ("R. Stenhouse Jr.", "JTG", "DRV", 6200, 30.0, 9.0), ("E. Jones", "LMC", "DRV", 6000, 29.0, 8.5)
+        ], 55.0)
     },
-    "⚽ MLS & Champions League Soccer (US & Canada DraftKings)": {
+    "⚽ MLS & Champions League Soccer (US & Canada DraftKings — 36 Players Active)": {
         "default_format_idx": 1,
         "live_matches": [
             {"title": "Inter Miami CF vs Los Angeles FC (MLS Prime Slate)", "status": "🔴 LIVE • 65' Min (2 - 1) | Apple TV MLS Season Pass", "info": "🔥 Goal Total: 3.5 | High Shot & Cross Volume"},
@@ -644,18 +795,28 @@ SPORTS_DATA = {
             {"title": "LA Galaxy vs Seattle Sounders FC", "time": "⏳ Tomorrow • 10:30 PM EST", "info": "📊 Early Goal Line: 3.5 | Attacking Slate"},
             {"title": "Real Madrid vs Manchester City (UCL US Afternoon Slate)", "time": "⏳ Tuesday • 3:00 PM EST (Paramount+)", "info": "📊 Early Goal Line: 3.5 | High Ceiling Showdown"}
         ],
-        "players": {
-            "ID": range(1, 17),
-            "Player": ["L. Messi", "L. Suarez", "D. Bouanga", "C. Hernandez", "R. Puig", "E. Haaland", "K. Mbappe", "V. Junior", "J. Bellingham", "M. Salah", "B. Saka", "C. Palmer", "K. De Bruyne", "F. Bernardeschi", "L. Insigne", "R. Gauld"],
-            "Team": ["MIA", "MIA", "LAFC", "CLB", "LAG", "MCI", "RMA", "RMA", "RMA", "LIV", "ARS", "CHE", "MCI", "TOR", "TOR", "VAN"],
-            "Pos": ["FWD", "FWD", "FWD", "FWD", "MID", "FWD", "FWD", "FWD", "MID", "FWD", "MID", "MID", "MID", "FWD", "FWD", "MID"],
-            "Salary": [10400, 9500, 9300, 9100, 8600, 10000, 9800, 9200, 8700, 9000, 8500, 8400, 8200, 7900, 7700, 8000],
-            "Proj_Pts": [28.5, 23.5, 23.0, 22.0, 20.5, 26.5, 25.8, 22.5, 20.0, 21.8, 19.5, 19.8, 19.0, 18.2, 17.5, 18.8],
-            "Ownership_%": [38.0, 27.0, 25.0, 23.0, 19.0, 32.0, 29.5, 21.0, 18.0, 22.0, 17.5, 20.0, 16.0, 15.0, 14.0, 16.5],
-            "Vegas_Total": [3.5] * 16
-        }
+        "players": build_roster_pool([
+            ("L. Messi", "MIA", "FWD", 10400, 28.5, 38.0), ("E. Haaland", "MCI", "FWD", 10200, 27.5, 34.0),
+            ("K. Mbappe", "RMA", "FWD", 10000, 26.8, 31.0), ("L. Suarez", "MIA", "FWD", 9400, 24.0, 26.0),
+            ("D. Bouanga", "LAFC", "FWD", 9300, 23.5, 25.0), ("C. Hernandez", "CLB", "FWD", 9200, 23.2, 24.0),
+            ("V. Junior", "RMA", "FWD", 9100, 23.0, 23.5), ("M. Salah", "LIV", "FWD", 9000, 22.8, 22.5),
+            ("B. Saka", "ARS", "MID", 8800, 21.8, 21.0), ("C. Palmer", "CHE", "MID", 8700, 21.5, 22.0),
+            ("R. Puig", "LAG", "MID", 8600, 21.2, 20.0), ("J. Bellingham", "RMA", "MID", 8500, 20.8, 19.5),
+            ("K. De Bruyne", "MCI", "MID", 8400, 20.5, 18.5), ("L. Acosta", "CIN", "MID", 8300, 20.2, 18.0),
+            ("E. Forsberg", "RBNY", "MID", 8100, 19.5, 16.5), ("R. Gauld", "VAN", "MID", 8000, 19.2, 17.0),
+            ("F. Bernardeschi", "TOR", "FWD", 7900, 18.8, 15.5), ("L. Insigne", "TOR", "FWD", 7700, 18.2, 14.5),
+            ("G. Pec", "LAG", "FWD", 7800, 18.5, 16.0), ("J. Paintsil", "LAG", "FWD", 7600, 17.9, 15.0),
+            ("C. Benteke", "DC", "FWD", 7500, 17.6, 15.5), ("D. Rossi", "CLB", "FWD", 7400, 17.2, 14.0),
+            ("B. White", "VAN", "FWD", 7200, 16.8, 13.0), ("J. Morris", "SEA", "FWD", 7100, 16.5, 12.5),
+            ("A. Rusnak", "SEA", "MID", 7300, 17.0, 13.5), ("M. Bogusz", "LAFC", "MID", 7000, 16.2, 13.0),
+            ("J. Alba", "MIA", "DEF", 6800, 15.8, 19.0), ("T. Alexander-Arnold", "LIV", "DEF", 6700, 15.5, 17.5),
+            ("A. Hakimi", "PSG", "DEF", 6500, 15.0, 16.0), ("S. Busquets", "MIA", "MID", 6200, 14.0, 12.0),
+            ("R. Hollingshead", "LAFC", "DEF", 5800, 13.2, 11.5), ("K. Wagner", "PHI", "DEF", 6000, 13.8, 12.5),
+            ("W. Saliba", "ARS", "DEF", 5500, 12.5, 10.5), ("H. Lloris", "LAFC", "GK", 5400, 12.2, 14.0),
+            ("D. Callender", "MIA", "GK", 5200, 11.8, 13.5), ("S. Johnson", "TOR", "GK", 4900, 11.0, 10.0)
+        ], 3.5)
     },
-    "🎾 Tennis — US Open & Canadian National Bank Open": {
+    "🎾 Tennis — US Open & Canadian National Bank Open (36 Players Active)": {
         "default_format_idx": 0,
         "live_matches": [
             {"title": "Taylor Fritz vs Frances Tiafoe (Arthur Ashe Stadium NY)", "status": "🔴 LIVE • Set 2 (6-4, 4-3) | ESPN", "info": "🔥 All-American Showdown | High Ace Bonus Slate"},
@@ -665,21 +826,31 @@ SPORTS_DATA = {
             {"title": "Felix Auger-Aliassime vs Denis Shapovalov (Montreal/Toronto)", "time": "⏳ Tomorrow • 1:00 PM EST", "info": "📊 Canadian Hardcourt Clash | 3+ Sets Likely"},
             {"title": "Coco Gauff vs Aryna Sabalenka (US Open Final)", "time": "⏳ Tomorrow • 4:00 PM EST", "info": "📊 Straight Sets Bonus Potential"}
         ],
-        "players": {
-            "ID": range(1, 17),
-            "Player": ["T. Fritz", "C. Alcaraz", "J. Sinner", "N. Djokovic", "B. Shelton", "F. Tiafoe", "T. Paul", "C. Gauff", "J. Pegula", "A. Sabalenka", "I. Swiatek", "F. Auger-Aliassime", "D. Shapovalov", "L. Fernandez", "D. Medvedev", "A. Zverev"],
-            "Team": ["USA", "ESP", "ITA", "SRB", "USA", "USA", "USA", "USA", "USA", "BLR", "POL", "CAN", "CAN", "CAN", "RUS", "GER"],
-            "Pos": ["TENNIS"] * 16,
-            "Salary": [9400, 10000, 9800, 9500, 8600, 8400, 8500, 9200, 8800, 9300, 9600, 8100, 7800, 8000, 8900, 9000],
-            "Proj_Pts": [66.0, 72.0, 70.5, 67.5, 60.5, 58.5, 59.5, 65.0, 61.5, 66.5, 68.5, 56.5, 54.0, 55.5, 62.5, 64.0],
-            "Ownership_%": [28.0, 34.0, 31.0, 26.0, 21.0, 18.5, 19.0, 27.0, 22.0, 25.0, 29.0, 16.5, 14.0, 15.5, 19.5, 20.5],
-            "Vegas_Total": [22.5] * 16
-        }
+        "players": build_roster_pool([
+            ("J. Sinner", "ITA", "TENNIS", 10200, 73.5, 34.0), ("C. Alcaraz", "ESP", "TENNIS", 10000, 72.0, 32.5),
+            ("N. Djokovic", "SRB", "TENNIS", 9700, 69.5, 28.0), ("A. Sabalenka", "BLR", "TENNIS", 9600, 69.0, 29.0),
+            ("I. Swiatek", "POL", "TENNIS", 9500, 68.5, 27.5), ("T. Fritz", "USA", "TENNIS", 9300, 66.5, 26.0),
+            ("A. Zverev", "GER", "TENNIS", 9200, 65.5, 24.0), ("D. Medvedev", "RUS", "TENNIS", 9000, 64.0, 22.0),
+            ("C. Gauff", "USA", "TENNIS", 8900, 63.5, 25.0), ("J. Pegula", "USA", "TENNIS", 8700, 61.5, 21.0),
+            ("E. Rybakina", "KAZ", "TENNIS", 8800, 62.5, 21.5), ("B. Shelton", "USA", "TENNIS", 8500, 60.0, 20.5),
+            ("T. Paul", "USA", "TENNIS", 8400, 59.5, 19.0), ("F. Tiafoe", "USA", "TENNIS", 8300, 58.5, 18.5),
+            ("G. Dimitrov", "BUL", "TENNIS", 8200, 58.0, 17.0), ("A. de Minaur", "AUS", "TENNIS", 8300, 58.5, 17.5),
+            ("A. Rublev", "RUS", "TENNIS", 8100, 57.0, 16.5), ("C. Ruud", "NOR", "TENNIS", 8000, 56.5, 16.0),
+            ("S. Tsitsipas", "GRE", "TENNIS", 7900, 55.5, 15.5), ("H. Rune", "DEN", "TENNIS", 7800, 55.0, 15.0),
+            ("F. Auger-Aliassime", "CAN", "TENNIS", 7700, 54.5, 16.5), ("J. Draper", "UK", "TENNIS", 7900, 56.0, 17.0),
+            ("S. Korda", "USA", "TENNIS", 7600, 53.5, 14.5), ("A. Michelsen", "USA", "TENNIS", 7300, 51.5, 13.0),
+            ("B. Nakashima", "USA", "TENNIS", 7400, 52.0, 13.5), ("D. Shapovalov", "CAN", "TENNIS", 7200, 50.5, 14.0),
+            ("L. Fernandez", "CAN", "TENNIS", 7500, 53.0, 15.5), ("E. Navarro", "USA", "TENNIS", 7800, 55.0, 16.5),
+            ("D. Collins", "USA", "TENNIS", 7600, 53.5, 15.0), ("M. Keys", "USA", "TENNIS", 7500, 52.5, 14.5),
+            ("Q. Zheng", "CHN", "TENNIS", 8200, 58.0, 18.0), ("J. Paolini", "ITA", "TENNIS", 7700, 54.0, 15.0),
+            ("M. Andreeva", "RUS", "TENNIS", 7400, 52.0, 14.0), ("P. Badosa", "ESP", "TENNIS", 7300, 51.5, 13.5),
+            ("B. Andreescu", "CAN", "TENNIS", 6900, 48.5, 12.5), ("R. Opelka", "USA", "TENNIS", 6700, 47.5, 11.5)
+        ], 22.5)
     }
 }
 
 selected_sport = st.selectbox(
-    "🇺🇸🇨🇦 Choose Your North American Sport League (10 Leagues Active):",
+    "🇺🇸🇨🇦 Choose Your North American Sport League (10 Leagues • 360+ Players Active):",
     list(SPORTS_DATA.keys())
 )
 
@@ -710,24 +881,25 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
-all_match_titles = ["🔥 Full Main Slate (All Today's Games)"] + [m["title"] for m in SPORTS_DATA[selected_sport]["live_matches"]] + [u["title"] + " (Upcoming)" for u in SPORTS_DATA[selected_sport]["upcoming_matches"]]
+all_match_titles = ["🔥 Full Main Slate (All 36 Players Active)"] + [m["title"] for m in SPORTS_DATA[selected_sport]["live_matches"]] + [u["title"] + " (Upcoming)" for u in SPORTS_DATA[selected_sport]["upcoming_matches"]]
 selected_slate = st.selectbox("🎯 Select Target Game / Contest Slate for Optimizer:", all_match_titles)
 
-st.markdown("#### 📥 Custom DraftKings / FanDuel CSV Upload (Optional)")
-uploaded_file = st.file_uploader("Upload Custom DFS CSV Data (Or use Auto-Loaded Vegas Slate Data)", type=["csv"])
+st.markdown("#### 📥 Universal DraftKings / FanDuel / Yahoo CSV Upload (Zero-Maintenance Mode)")
+uploaded_file = st.file_uploader("Upload ANY Official DraftKings or FanDuel CSV Slate (Or use our Auto-Loaded 36-Player Vegas Slate)", type=["csv"])
 
 if uploaded_file is not None:
     try:
-        df = pd.read_csv(uploaded_file)
-        st.success("✅ Custom DFS CSV Data Uploaded Successfully!")
+        raw_csv_df = pd.read_csv(uploaded_file)
+        df = smart_parse_dfs_csv(raw_csv_df)
+        st.success(f"✅ Official CSV Uploaded & Auto-Mapped! ({len(df)} Players Loaded into Engine)")
     except Exception:
-        st.error("⚠️ Error reading CSV! Using Auto-Loaded Slate Data.")
+        st.error("⚠️ Error reading CSV! Using Auto-Loaded 36-Player Vegas Slate.")
         df = pd.DataFrame(SPORTS_DATA[selected_sport]["players"])
 else:
     df = pd.DataFrame(SPORTS_DATA[selected_sport]["players"])
 
 # ==========================================
-# 🧠 NORTH AMERICAN SOLVER ($50,000 SALARY CAP CALIBRATED FOR 6, 8 & 9 PLAYERS)
+# 🧠 NORTH AMERICAN SOLVER ($50,000 SALARY CAP CALIBRATED FOR ANY CSV OR BUILT-IN POOL)
 # ==========================================
 def run_god_mode_solver(data, lineups_count, cap, strategy_mode, locked_players, excluded_players, roster_size):
     lineups, stats = [], []
@@ -736,8 +908,8 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode, locked_players,
         return [], []
         
     avg_raw_sal = base_data["Salary"].mean()
-    target_avg_sal = (cap * 0.96) / roster_size
-    if avg_raw_sal * roster_size > cap * 0.98:
+    target_avg_sal = (cap * 0.88) / roster_size
+    if avg_raw_sal * roster_size > cap * 0.95:
         scale_factor = target_avg_sal / avg_raw_sal
         base_data["Eff_Salary"] = (base_data["Salary"] * scale_factor / 100).round().astype(int) * 100
     else:
@@ -747,7 +919,7 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode, locked_players,
         prob = pulp.LpProblem(f"GodMode_{i}", pulp.LpMaximize)
         p_vars = pulp.LpVariable.dicts("P", base_data.index, cat='Binary')
         
-        noise = np.random.normal(0, 0.95 if i > 0 else 0.0, size=len(base_data))
+        noise = np.random.normal(0, 1.85 if i > 0 else 0.0, size=len(base_data))
         sim_pts = base_data["Proj_Pts"] + noise
         
         prob += pulp.lpSum([sim_pts[idx] * p_vars[idx] for idx in base_data.index])
@@ -759,11 +931,11 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode, locked_players,
                 prob += p_vars[idx] == 1
                 
         if strategy_mode == "💣 Mega GPP Tournament (High Ceiling / Low Ownership)":
-            prob += pulp.lpSum([base_data["Ownership_%"][idx] * p_vars[idx] for idx in base_data.index]) <= (roster_size * 26)
+            prob += pulp.lpSum([base_data["Ownership_%"][idx] * p_vars[idx] for idx in base_data.index]) <= (roster_size * 22)
         
         for prev_raw in lineups:
             clean_prev = [p.replace(" 👑(CPT)", "").replace(" ⚡(MVP)", "") for p in prev_raw]
-            prob += pulp.lpSum([p_vars[idx] for idx in base_data.index if base_data["Player"][idx] in clean_prev]) <= (roster_size - 1)
+            prob += pulp.lpSum([p_vars[idx] for idx in base_data.index if base_data["Player"][idx] in clean_prev]) <= (roster_size - 2)
             
         prob.solve(pulp.PULP_CBC_CMD(msg=0))
         
@@ -800,7 +972,7 @@ app_mode = st.selectbox(
     "Choose your section:",
     [
         "🚀 Auto-Pilot Engine",
-        "📊 The Terminal (Player Data)",
+        "📊 The Terminal (Player Data — 36+ Players)",
         "📰 Live Match News",
         "📉 Pro Analytics",
         "💎 VIP Upgrade & Support Center"
@@ -811,7 +983,7 @@ st.divider()
 
 if app_mode == "🚀 Auto-Pilot Engine":
     st.markdown(f"### 🧠 Engine Settings — {selected_sport}")
-    st.markdown(f"<p style='color:#00FF41; font-weight:bold;'>Active Contest Slate: {selected_slate}</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color:#00FF41; font-weight:bold;'>Active Contest Slate: {selected_slate} | Player Pool: {len(df)} Active Players</p>", unsafe_allow_html=True)
     st.markdown("""
     <div class='strategy-box'>
         <b style='color:#FFD700; font-size:16px;'>Step 3: Select Official US & Canada DFS Roster Format ($50,000 Cap)</b><br>
@@ -863,7 +1035,7 @@ if app_mode == "🚀 Auto-Pilot Engine":
         for percent in range(100):
             time.sleep(0.008)
             progress_bar.progress(percent + 1)
-            if percent < 50: status_text.text(f"Running {roster_size}-Player Vegas Simulations ($50,000 Cap)...")
+            if percent < 50: status_text.text(f"Scanning {len(df)} Active Players & Running {roster_size}-Player Vegas Sims...")
             else: status_text.text("Optimizing DraftKings / FanDuel Winning Stacks...")
             
         status_text.text("✅ EXECUTION COMPLETE.")
@@ -871,7 +1043,7 @@ if app_mode == "🚀 Auto-Pilot Engine":
         final_lineups, stat_list = run_god_mode_solver(df, num_lineups, salary_cap, strategy, locked_players, excluded_players, roster_size)
         
         if final_lineups:
-            st.success(f"🏆 {len(final_lineups)} WINNING {roster_size}-PLAYER LINEUPS GENERATED (UNDER ${salary_cap:,} CAP)!")
+            st.success(f"🏆 {len(final_lineups)} UNIQUE WINNING {roster_size}-PLAYER LINEUPS GENERATED (FROM {len(df)}-PLAYER POOL)!")
             df_out = pd.DataFrame(final_lineups, columns=col_names)
             df_out["Metrics"] = stat_list
             df_out.index = [f"Lineup-{i+1}" for i in range(len(df_out))]
@@ -882,10 +1054,10 @@ if app_mode == "🚀 Auto-Pilot Engine":
         else:
             st.error("Engine Overload: Too many players excluded. Reduce excluded players and try again.")
 
-elif app_mode == "📊 The Terminal (Player Data)":
-    st.subheader(f"Deep-Dive Player Matrix — {selected_sport}")
+elif app_mode.startswith("📊 The Terminal"):
+    st.subheader(f"Deep-Dive Player Matrix ({len(df)} Players Active) — {selected_sport}")
     st.markdown(f"<p style='color:#FFD700; font-size:13px;'>Slate: {selected_slate}</p>", unsafe_allow_html=True)
-    st.markdown("<span style='color:#A0AEC0; font-size:12px;'>*(Swipe left/right on the table to see full data)*</span>", unsafe_allow_html=True)
+    st.markdown("<span style='color:#A0AEC0; font-size:12px;'>*(Swipe up/down & left/right on the table to view all players)*</span>", unsafe_allow_html=True)
     
     full_df = df.copy()
     if 'Proj_Pts' in full_df.columns: full_df['Proj_Pts'] = full_df['Proj_Pts'].round(1)
@@ -893,7 +1065,7 @@ elif app_mode == "📊 The Terminal (Player Data)":
     
     st.dataframe(full_df.style.background_gradient(subset=['Proj_Pts'], cmap='Greens')
                  .background_gradient(subset=['Ownership_%'], cmap='Reds'), 
-                 use_container_width=True, hide_index=True)
+                 use_container_width=True, hide_index=True, height=650)
 
 elif app_mode == "📰 Live Match News":
     st.subheader(f"🚨 Vegas & Rotowire Breaking News — {selected_sport}")
@@ -906,8 +1078,8 @@ elif app_mode == "📰 Live Match News":
     """, unsafe_allow_html=True)
 
 elif app_mode == "📉 Pro Analytics":
-    st.subheader(f"Pro Leverage & Value Matrix — {selected_sport}")
-    fig1 = px.scatter(df, x="Salary", y="Proj_Pts", color="Pos", hover_name="Player", template="plotly_dark", title="Salary vs Projected Points")
+    st.subheader(f"Pro Leverage & Value Matrix (All {len(df)} Players) — {selected_sport}")
+    fig1 = px.scatter(df, x="Salary", y="Proj_Pts", color="Pos", hover_name="Player", template="plotly_dark", title=f"Salary vs Projected Points ({len(df)}-Player Slate)")
     st.plotly_chart(fig1, use_container_width=True)
 
 elif app_mode == "💎 VIP Upgrade & Support Center":
