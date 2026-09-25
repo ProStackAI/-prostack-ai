@@ -7,6 +7,17 @@ from datetime import datetime, timedelta
 import hashlib
 import sqlite3
 
+# ==========================================
+# 💳 STEP 0: CEO PAYMENT GATEWAY LINKS
+# (Jab aapka Stripe/Razorpay account ban jaye, apne links yahan paste kar dein)
+# ==========================================
+PAYMENT_LINKS = {
+    "🥇 1 Month Plan ($29 / ₹2,400)": "https://buy.stripe.com/test_1month_link",
+    "🥈 3 Months Plan - Popular ($79 / ₹6,500)": "https://buy.stripe.com/test_3months_link",
+    "🥉 6 Months Plan - Best Value ($139 / ₹11,500)": "https://buy.stripe.com/test_6months_link",
+    "👑 1 Year VIP Pass ($249 / ₹20,000)": "https://buy.stripe.com/test_1year_link"
+}
+
 # --- 1. DATABASE & ENTERPRISE SETUP ---
 def init_db():
     conn = sqlite3.connect('prostack_users.db')
@@ -16,17 +27,28 @@ def init_db():
             email TEXT PRIMARY KEY,
             password TEXT,
             expiry_date TEXT,
-            status TEXT
+            status TEXT,
+            pending_plan TEXT DEFAULT 'None',
+            payment_ref TEXT DEFAULT 'None'
         )
     ''')
+    # Agar purani table hai toh naye columns add kar do bina data udaye
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN pending_plan TEXT DEFAULT 'None'")
+    except:
+        pass
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN payment_ref TEXT DEFAULT 'None'")
+    except:
+        pass
     conn.commit()
     
     c.execute("SELECT COUNT(*) FROM users")
     if c.fetchone()[0] == 0:
         dummy_pw = hashlib.sha256("password123".encode()).hexdigest()
         expiry = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
-        c.execute("INSERT OR IGNORE INTO users (email, password, expiry_date, status) VALUES (?, ?, ?, ?)", 
-                  ("testuser@prostack.ai", dummy_pw, expiry, 'Active'))
+        c.execute("INSERT OR IGNORE INTO users (email, password, expiry_date, status, pending_plan, payment_ref) VALUES (?, ?, ?, ?, ?, ?)", 
+                  ("testuser@prostack.ai", dummy_pw, expiry, 'Active', 'None', 'None'))
         conn.commit()
         
     conn.close()
@@ -39,8 +61,8 @@ def add_user(email, password, days=30):
     hashed_pw = hashlib.sha256(password.encode()).hexdigest()
     expiry = (datetime.now() + timedelta(days=days)).strftime('%Y-%m-%d %H:%M:%S')
     try:
-        c.execute("INSERT INTO users (email, password, expiry_date, status) VALUES (?, ?, ?, ?)", 
-                  (email, hashed_pw, expiry, 'Active'))
+        c.execute("INSERT INTO users (email, password, expiry_date, status, pending_plan, payment_ref) VALUES (?, ?, ?, ?, ?, ?)", 
+                  (email, hashed_pw, expiry, 'Active', 'None', 'None'))
         conn.commit()
         conn.close()
         return True
@@ -48,21 +70,29 @@ def add_user(email, password, days=30):
         conn.close()
         return False
 
-def extend_subscription(email, days):
+def submit_payment_request(email, plan_name, ref_id):
     conn = sqlite3.connect('prostack_users.db')
     c = conn.cursor()
-    c.execute("SELECT expiry_date FROM users WHERE email = ?", (email,))
-    row = c.fetchone()
-    if row:
-        current_expiry = datetime.strptime(row[0], '%Y-%m-%d %H:%M:%S')
-        base_time = max(datetime.now(), current_expiry)
-        new_expiry = (base_time + timedelta(days=days)).strftime('%Y-%m-%d %H:%M:%S')
-        c.execute("UPDATE users SET expiry_date = ?, status = 'Active' WHERE email = ?", (new_expiry, email))
-        conn.commit()
-        conn.close()
-        return True
+    c.execute("UPDATE users SET pending_plan = ?, payment_ref = ? WHERE email = ?", (plan_name, ref_id, email))
+    conn.commit()
     conn.close()
-    return False
+
+def admin_update_user(email, new_status, add_days=0):
+    conn = sqlite3.connect('prostack_users.db')
+    c = conn.cursor()
+    if add_days > 0:
+        c.execute("SELECT expiry_date FROM users WHERE email = ?", (email,))
+        row = c.fetchone()
+        if row:
+            current_expiry = datetime.strptime(row[0], '%Y-%m-%d %H:%M:%S')
+            base_time = max(datetime.now(), current_expiry)
+            new_expiry = (base_time + timedelta(days=add_days)).strftime('%Y-%m-%d %H:%M:%S')
+            c.execute("UPDATE users SET expiry_date = ?, status = ?, pending_plan = 'Approved', payment_ref = 'Verified' WHERE email = ?", 
+                      (new_expiry, new_status, email))
+    else:
+        c.execute("UPDATE users SET status = ? WHERE email = ?", (new_status, email))
+    conn.commit()
+    conn.close()
 
 def get_user_status(email):
     if email == "ADMIN":
@@ -133,6 +163,7 @@ st.markdown("""
     .strategy-box {background-color: #1A202C; padding: 15px; border-radius: 8px; border-left: 4px solid #FFD700; margin-bottom: 15px;}
     .recharge-box {background-color: #1A202C; padding: 20px; border-radius: 10px; border: 2px solid #FF3131; margin-bottom: 20px;}
     .admin-box {background-color: #1A202C; padding: 20px; border-radius: 10px; border: 2px solid #FFD700; margin-bottom: 20px;}
+    .pay-link-btn {display: block; width: 100%; text-align: center; background-color: #00FF41; color: #000000 !important; font-weight: 900; padding: 14px; border-radius: 8px; text-decoration: none; font-size: 18px; margin-top: 10px; margin-bottom: 15px;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -188,79 +219,94 @@ if st.session_state.user_email == "ADMIN":
     st.markdown("""
     <div class='admin-box'>
         <h2 style='color: #FFD700 !important;'>👑 CEO ADMIN CONTROL ROOM</h2>
-        <p style='color: white;'>Aap yahan saare registered users ka data dekh aur manage kar sakte hain, aur iske theek niche aapka Auto-Pilot Engine active hai:</p>
+        <p style='color: white;'>Yahan se aap users ke Payment Reference check kar sakte hain, unka plan (1M/3M/6M/1Y) badha sakte hain, ya kisi ko bhi Block kar sakte hain:</p>
     </div>
     """, unsafe_allow_html=True)
     
     conn = sqlite3.connect('prostack_users.db')
-    users_df = pd.read_sql_query("SELECT * FROM users", conn)
+    users_df = pd.read_sql_query("SELECT email, expiry_date, status, pending_plan, payment_ref FROM users", conn)
     conn.close()
     
     total_users = len(users_df)
     active_users = len(users_df[users_df['status'] == 'Active']) if total_users > 0 else 0
+    pending_payments = len(users_df[(users_df['pending_plan'] != 'None') & (users_df['pending_plan'] != 'Approved')]) if total_users > 0 else 0
     
-    col_m1, col_m2 = st.columns(2)
+    col_m1, col_m2, col_m3 = st.columns(3)
     with col_m1:
-        st.metric("👥 Total Registered Users", total_users)
+        st.metric("👥 Total Users", total_users)
     with col_m2:
-        st.metric("🟢 Active Subscriptions", active_users)
+        st.metric("🟢 Active Users", active_users)
+    with col_m3:
+        st.metric("💰 Pending Verifications", pending_payments)
         
     st.dataframe(users_df, use_container_width=True)
     
-    col_a, col_b = st.columns(2)
+    col_a, col_b, col_c = st.columns(3)
     with col_a:
-        target_email = st.selectbox("Select User to Manage", users_df['email'].tolist() if not users_df.empty else ["None"])
+        target_email = st.selectbox("1. Select User", users_df['email'].tolist() if not users_df.empty else ["None"])
     with col_b:
-        action = st.selectbox("Action", ["Active", "Blocked"])
+        action = st.selectbox("2. Account Status", ["Active", "Blocked"])
+    with col_c:
+        plan_boost = st.selectbox("3. Add Subscription Days (Optional)", [
+            "0 Days (Status Only)",
+            "+30 Days (1 Month Plan)",
+            "+90 Days (3 Months Plan)",
+            "+180 Days (6 Months Plan)",
+            "+365 Days (1 Year VIP)"
+        ])
         
-    if st.button("⚡ Update User Status", use_container_width=True):
+    boost_map = {
+        "0 Days (Status Only)": 0,
+        "+30 Days (1 Month Plan)": 30,
+        "+90 Days (3 Months Plan)": 90,
+        "+180 Days (6 Months Plan)": 180,
+        "+365 Days (1 Year VIP)": 365
+    }
+        
+    if st.button("⚡ EXECUTE ADMIN COMMAND (UPDATE USER)", use_container_width=True):
         if target_email and target_email != "None":
-            conn = sqlite3.connect('prostack_users.db')
-            c = conn.cursor()
-            c.execute("UPDATE users SET status = ? WHERE email = ?", (action, target_email))
-            conn.commit()
-            conn.close()
-            st.success(f"✅ User {target_email} status updated to {action}!")
+            days_to_add = boost_map[plan_boost]
+            admin_update_user(target_email, action, days_to_add)
+            st.success(f"✅ User {target_email} updated! Status: {action} | Added Days: {days_to_add}")
             time.sleep(1)
             st.rerun()
             
     st.divider()
 
 # ==========================================
-# 🟢 CHECK SUBSCRIPTION STATUS
+# 🟢 CHECK SUBSCRIPTION STATUS & PAYMENT WALL
 # ==========================================
 is_active, exp_info = get_user_status(st.session_state.user_email)
 
 st.markdown(f'<p class="god-title">⚡ ProStack AI</p>', unsafe_allow_html=True)
-st.markdown(f'<p class="sub-text">Welcome, {st.session_state.user_email} | Status: {"🟢 Active (" + exp_info + ")" if is_active else "🔴 Expired"}</p>', unsafe_allow_html=True)
+st.markdown(f'<p class="sub-text">Welcome, {st.session_state.user_email} | Status: {"🟢 Active (Valid till: " + exp_info + ")" if is_active else "🔴 Expired"}</p>', unsafe_allow_html=True)
 st.divider()
 
 if not is_active:
     st.markdown("""
     <div class='recharge-box'>
         <h2 style='color: #FF3131 !important;'>⚠️ SUBSCRIPTION EXPIRED</h2>
-        <p style='color: white;'>Your pass has ended. Please choose your recharge plan below to renew.</p>
+        <p style='color: white;'>Your access pass has ended. Complete your payment below and submit your Transaction ID to unlock God-Mode.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    plan = st.radio("Choose Duration:", [
-        "🥇 1 Month Plan ($29 / ₹2,400)", 
-        "🥈 3 Months Plan - Popular ($79 / ₹6,500)", 
-        "🥉 6 Months Plan - Best Value ($139 / ₹11,500)", 
-        "👑 1 Year VIP Pass ($249 / ₹20,000)"
-    ])
-    days_map = {
-        "🥇 1 Month Plan ($29 / ₹2,400)": 30,
-        "🥈 3 Months Plan - Popular ($79 / ₹6,500)": 90,
-        "🥉 6 Months Plan - Best Value ($139 / ₹11,500)": 180,
-        "👑 1 Year VIP Pass ($249 / ₹20,000)": 365
-    }
-    if st.button("🚀 PROCEED TO SECURE PAYMENT & RENEW", use_container_width=True):
-        if extend_subscription(st.session_state.user_email, days_map[plan]):
-            st.success("✅ Renewed Successfully! Refreshing...")
-            time.sleep(2)
-            st.rerun()
+    st.markdown("### 💳 Step 1: Select Your Recharge Plan")
+    plan = st.radio("Choose Duration:", list(PAYMENT_LINKS.keys()))
+    
+    selected_link = PAYMENT_LINKS[plan]
+    st.markdown(f"<a href='{selected_link}' target='_blank' class='pay-link-btn'>💳 CLICK HERE TO PAY FOR {plan.split('(')[0].upper()}</a>", unsafe_allow_html=True)
+    
+    st.markdown("### 🧾 Step 2: Verify Your Payment")
+    ref_id = st.text_input("Enter Payment Transaction ID / UTR / Reference Number:", placeholder="e.g. TXN982374923 or Stripe Email")
+    
+    if st.button("🚀 SUBMIT PAYMENT FOR ACTIVATION", use_container_width=True):
+        if len(ref_id.strip()) >= 4:
+            submit_payment_request(st.session_state.user_email, plan, ref_id.strip())
+            st.success("✅ Payment Reference Submitted! Admin will verify and activate your account shortly.")
+        else:
+            st.error("⚠️ Please enter a valid Transaction / Reference ID after making the payment.")
             
+    st.write("")
     if st.button("🚪 Logout", use_container_width=True):
         st.session_state.logged_in = False
         st.session_state.user_email = ""
@@ -268,7 +314,7 @@ if not is_active:
     st.stop()
 
 # ==========================================
-# 🚀 MAIN DFS ENGINE & PLAYER MATRIX (FOR BOTH ADMIN & USERS)
+# 🚀 MAIN DFS ENGINE & PLAYER MATRIX
 # ==========================================
 
 st.markdown("### 📥 Step 1: Upload Match Data")
