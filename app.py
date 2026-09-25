@@ -12,13 +12,13 @@ import hashlib
 import sqlite3
 
 # ==========================================
-# ⚙️ STEP 0: GLOBAL PAYMENT LINKS (USD / CAD / EUR / GBP)
+# ⚙️ STEP 0: USA & CANADA PAYMENT LINKS (USD & CAD ONLY)
 # ==========================================
 PAYMENT_LINKS = {
-    "🥇 1 Month Pass ($29 USD / €27 EUR / £23 GBP)": "https://buy.stripe.com/test_1month_link",
-    "🥈 3 Months Pro Pass - Popular ($79 USD / €72 EUR / £62 GBP)": "https://buy.stripe.com/test_3months_link",
-    "🥉 6 Months Elite Pass - Best Value ($139 USD / €128 EUR / £109 GBP)": "https://buy.stripe.com/test_6months_link",
-    "👑 1 Year VIP All-Access ($249 USD / €229 EUR / £195 GBP)": "https://buy.stripe.com/test_1year_link"
+    "🥇 1 Month All-Access Pass ($29 USD / $39 CAD)": "https://buy.stripe.com/test_1month_link",
+    "🥈 3 Months Pro Pass - Popular ($79 USD / $109 CAD)": "https://buy.stripe.com/test_3months_link",
+    "🥉 6 Months Elite Pass - Best Value ($139 USD / $189 CAD)": "https://buy.stripe.com/test_6months_link",
+    "👑 1 Year VIP Vegas Pass ($249 USD / $339 CAD)": "https://buy.stripe.com/test_1year_link"
 }
 
 SUPPORT_WHATSAPP_URL = "https://wa.me/19999999999?text=Hello%20ProStack%20AI%20VIP%20Support"
@@ -29,7 +29,7 @@ SMTP_SENDER_EMAIL = ""
 SMTP_APP_PASSWORD = ""
 
 # --- 1. DATABASE & ENTERPRISE SETUP ---
-DB_FILE = 'prostack_global_v4.db'
+DB_FILE = 'prostack_us_canada_v5.db'
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -195,7 +195,7 @@ def verify_user(email, password):
     return False, "Invalid Email or Password"
 
 # --- 2. EXTREMELY ULTRA PAGE SETUP ---
-st.set_page_config(page_title="ProStack AI - US • Canada • Europe", page_icon="⚡", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="ProStack AI - USA & Canada DFS", page_icon="⚡", layout="wide", initial_sidebar_state="collapsed")
 
 hide_st_style = """
             <style>
@@ -252,7 +252,7 @@ if 'reset_otp' not in st.session_state:
 if not st.session_state.logged_in:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<h1 style='text-align: center;'>⚡ PROSTACK AI PORTAL</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #A0AEC0;'>#1 AI Fantasy Optimizer for US 🇺🇸 • Canada 🇨🇦 • Europe 🇪🇺🇬🇧</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #A0AEC0;'>#1 AI Daily Fantasy Optimizer for USA 🇺🇸 & Canada 🇨🇦 (DraftKings • FanDuel • PrizePicks)</p>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -281,7 +281,7 @@ if not st.session_state.logged_in:
                         
         elif auth_mode == "Sign Up (New User)":
             s_email = st.text_input("Enter Your Email Address", placeholder="name@email.com")
-            s_phone = st.text_input("Enter Phone / Mobile Number (With Country Code for OTP)", placeholder="e.g. +1 234 567 8900 or +44 7911 123456")
+            s_phone = st.text_input("Enter US / Canada Mobile Number (For SMS OTP)", placeholder="e.g. +1 (555) 234-5678")
             s_password = st.text_input("Create Password (min 6 chars)", type="password")
             
             if st.button("🚀 CREATE ACCOUNT & LOGIN", use_container_width=True):
@@ -301,7 +301,7 @@ if not st.session_state.logged_in:
         elif auth_mode == "🔑 Forgot Password":
             st.markdown("#### 📲 Instant Password Recovery (Email / SMS OTP)")
             rec_email = st.text_input("Registered Email Address", placeholder="Enter your email")
-            rec_phone = st.text_input("Registered Phone Number", placeholder="Enter your phone number")
+            rec_phone = st.text_input("Registered Mobile Number", placeholder="Enter your +1 phone number")
             
             if st.button("📩 SEND RECOVERY OTP MESSAGE", use_container_width=True):
                 if check_user_for_recovery(rec_email, rec_phone):
@@ -333,8 +333,8 @@ if not st.session_state.logged_in:
 if st.session_state.user_email == "ADMIN":
     st.markdown("""
     <div class='admin-box'>
-        <h2 style='color: #FFD700 !important;'>👑 CEO ADMIN CONTROL ROOM (GLOBAL EMPIRE)</h2>
-        <p style='color: white;'>Manage all US, Canada & European users, verify payments, or download CSV database backups:</p>
+        <h2 style='color: #FFD700 !important;'>👑 CEO ADMIN CONTROL ROOM (USA & CANADA EDITION)</h2>
+        <p style='color: white;'>Manage all North American users, verify USD/CAD payments, or download CSV database backups:</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -395,7 +395,7 @@ if st.session_state.user_email == "ADMIN":
     col_bk1, col_bk2 = st.columns(2)
     with col_bk1:
         db_csv = full_db_df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 DOWNLOAD ALL USERS CSV BACKUP", db_csv, "ProStack_Users_Backup.csv", "text/csv", use_container_width=True)
+        st.download_button("📥 DOWNLOAD ALL USERS CSV BACKUP", db_csv, "ProStack_US_Canada_Backup.csv", "text/csv", use_container_width=True)
     with col_bk2:
         restore_file = st.file_uploader("📤 Restore Users from CSV Backup", type=["csv"])
         if restore_file is not None:
@@ -419,18 +419,18 @@ if st.session_state.user_email == "ADMIN":
 is_active, exp_info = get_user_status(st.session_state.user_email)
 
 st.markdown(f'<p class="god-title">⚡ ProStack AI</p>', unsafe_allow_html=True)
-st.markdown(f'<p class="sub-text">Welcome, {st.session_state.user_email} | Region: 🇺🇸 US • 🇨🇦 Canada • 🇪🇺🇬🇧 Europe | Status: {"🟢 Active (Valid till: " + exp_info + ")" if is_active else "🔴 Expired"}</p>', unsafe_allow_html=True)
+st.markdown(f'<p class="sub-text">Welcome, {st.session_state.user_email} | Market: 🇺🇸 USA & 🇨🇦 Canada ($ USD / $ CAD) | Status: {"🟢 Active (Valid till: " + exp_info + ")" if is_active else "🔴 Expired"}</p>', unsafe_allow_html=True)
 st.divider()
 
 if not is_active:
     st.markdown("""
     <div class='recharge-box'>
         <h2 style='color: #FF3131 !important;'>⚠️ SUBSCRIPTION EXPIRED</h2>
-        <p style='color: white;'>Your access pass has ended. Complete your payment below (USD / CAD / EUR / GBP accepted) and submit your Transaction Reference to unlock God-Mode.</p>
+        <p style='color: white;'>Your access pass has ended. Complete your payment below ($ USD / $ CAD) and submit your Transaction Reference to unlock God-Mode.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("### 💳 Step 1: Select Your Plan")
+    st.markdown("### 💳 Step 1: Select Your North American Plan")
     plan = st.radio("Choose Duration:", list(PAYMENT_LINKS.keys()))
     
     selected_link = PAYMENT_LINKS[plan]
@@ -458,21 +458,21 @@ if not is_active:
     st.stop()
 
 # ==========================================
-# 🏟️ STEP 1: 10-SPORT US, CANADA & EUROPE MATCH CENTER (CRYSTAL CLEAR NAMING)
+# 🏟️ STEP 1: 10-SPORT PURE USA & CANADA MATCH CENTER (EST / PST TIMINGS)
 # ==========================================
-st.markdown("### 🎮 Step 1: Global Game Selector & Match Center (US • Canada • Europe)")
+st.markdown("### 🎮 Step 1: North America Game Selector & Match Center (🇺🇸 USA & 🇨🇦 Canada)")
 
 SPORTS_DATA = {
-    "🏈 NFL — American Football (US & Canada DraftKings/FanDuel)": {
-        "default_format_idx": 0,
+    "🏈 NFL — American Football (DraftKings / FanDuel / PrizePicks)": {
+        "default_format_idx": 2,
         "live_matches": [
-            {"title": "Kansas City Chiefs (KC) vs Buffalo Bills (BUF)", "status": "🔴 LIVE • Q2 (14 - 10) | North America Main Slate", "info": "🔥 Vegas Total: 52.5 Pts | Spread: KC -2.5"},
-            {"title": "San Francisco 49ers (SF) vs Philadelphia Eagles (PHI)", "status": "🟢 TODAY • Starts at 4:25 PM EST", "info": "⚡ Vegas Total: 48.0 Pts | Spread: SF -3.0"},
-            {"title": "Miami Dolphins (MIA) vs Los Angeles Chargers (LAC)", "status": "🟢 TODAY • Tonight 8:15 PM EST", "info": "🚀 Vegas Total: 50.5 Pts | High Pace Dome Game"}
+            {"title": "Kansas City Chiefs (KC) vs Buffalo Bills (BUF)", "status": "🔴 LIVE • Q2 (14 - 10) | CBS / Main Slate", "info": "🔥 Vegas Total: 52.5 Pts | Spread: KC -2.5"},
+            {"title": "San Francisco 49ers (SF) vs Philadelphia Eagles (PHI)", "status": "🟢 TODAY • Kickoff 4:25 PM EST", "info": "⚡ Vegas Total: 48.0 Pts | Spread: SF -3.0"},
+            {"title": "Miami Dolphins (MIA) vs Los Angeles Chargers (LAC)", "status": "🟢 TODAY • Sunday Night Football 8:20 PM EST", "info": "🚀 Vegas Total: 50.5 Pts | High Pace Dome Game"}
         ],
         "upcoming_matches": [
             {"title": "Dallas Cowboys (DAL) vs Detroit Lions (DET)", "time": "⏳ Tomorrow • 8:15 PM EST (Monday Night Football)", "info": "📊 Early Vegas Line: 51.0 Pts | Dome Shootout"},
-            {"title": "Baltimore Ravens (BAL) vs Cincinnati Bengals (CIN)", "time": "⏳ Thursday Night • 8:15 PM EST", "info": "📊 Early Vegas Line: 49.5 Pts | Division Rivalry"}
+            {"title": "Baltimore Ravens (BAL) vs Cincinnati Bengals (CIN)", "time": "⏳ Thursday Night • 8:15 PM EST (Prime Video)", "info": "📊 Early Vegas Line: 49.5 Pts | AFC North Rivalry"}
         ],
         "players": {
             "ID": range(1, 17),
@@ -485,37 +485,15 @@ SPORTS_DATA = {
             "Vegas_Total": [52.5] * 16
         }
     },
-    "⚽ Soccer / European Football (EPL, Champions League, LaLiga, MLS)": {
-        "default_format_idx": 2,
-        "live_matches": [
-            {"title": "Manchester City (MCI) vs Arsenal (ARS) — English Premier League", "status": "🔴 LIVE • 62' Min (2 - 1) | UK/EU Main Slate", "info": "🔥 Goal Total: 3.5 | High Pressing Matchup"},
-            {"title": "Real Madrid (RMA) vs Bayern Munich (BAY) — UEFA Champions League", "status": "🟢 TODAY • Kickoff 20:00 CET / 3:00 PM EST", "info": "⚡ Goal Total: 3.0 | RMA -0.5 Favorite"},
-            {"title": "Liverpool (LIV) vs Chelsea (CHE) — Premier League", "status": "🟢 TODAY • Kickoff 17:30 GMT / 12:30 PM EST", "info": "🚀 Goal Total: 3.5 | High Corner & Shot Volume"}
-        ],
-        "upcoming_matches": [
-            {"title": "FC Barcelona (BAR) vs Paris Saint-Germain (PSG) — UCL", "time": "⏳ Tomorrow • 20:00 CET / 3:00 PM EST", "info": "📊 Early Goal Line: 3.5 | Attacking Slate"},
-            {"title": "Inter Milan (INT) vs Borussia Dortmund (BVB) — UCL", "time": "⏳ Tomorrow • 20:00 CET / 3:00 PM EST", "info": "📊 Early Goal Line: 3.0 | European Elite Clash"}
-        ],
-        "players": {
-            "ID": range(1, 17),
-            "Player": ["E. Haaland", "K. Mbappe", "M. Salah", "B. Saka", "V. Junior", "J. Bellingham", "C. Palmer", "K. De Bruyne", "H. Kane", "P. Foden", "L. Diaz", "M. Odegaard", "R. Rodri", "W. Saliba", "T. Alexander-Arnold", "A. Becker"],
-            "Team": ["MCI", "RMA", "LIV", "ARS", "RMA", "RMA", "CHE", "MCI", "BAY", "MCI", "LIV", "ARS", "MCI", "ARS", "LIV", "LIV"],
-            "Pos": ["FWD", "FWD", "FWD", "MID", "FWD", "MID", "MID", "MID", "FWD", "MID", "FWD", "MID", "MID", "DEF", "DEF", "GK"],
-            "Salary": [9800, 9600, 9200, 8800, 9000, 8500, 8400, 8200, 8900, 7900, 7600, 7700, 7100, 6500, 6800, 6000],
-            "Proj_Pts": [26.5, 25.8, 23.5, 22.0, 23.0, 20.5, 21.8, 20.0, 22.5, 19.0, 18.2, 18.5, 16.5, 15.0, 16.8, 14.5],
-            "Ownership_%": [32.0, 29.5, 24.0, 21.0, 22.5, 18.0, 25.0, 16.5, 20.0, 14.0, 13.5, 15.0, 11.0, 9.5, 14.5, 12.0],
-            "Vegas_Total": [3.5] * 16
-        }
-    },
-    "🏀 NBA (Basketball — US, Canada & EuroLeague)": {
+    "🏀 NBA — Pro Basketball (US & Canada Main Slate)": {
         "default_format_idx": 1,
         "live_matches": [
-            {"title": "Denver Nuggets (DEN) vs Los Angeles Lakers (LAL)", "status": "🔴 LIVE • 3rd Quarter (88 - 84)", "info": "🔥 Vegas Total: 234.5 Pts | Fast Pace Slate"},
-            {"title": "Toronto Raptors (TOR) vs Boston Celtics (BOS)", "status": "🟢 TODAY • Starts at 7:30 PM EST", "info": "⚡ Vegas Total: 228.0 Pts | North American Slate"},
-            {"title": "Golden State Warriors (GSW) vs Phoenix Suns (PHX)", "status": "🟢 TODAY • Starts at 10:30 PM EST", "info": "🚀 Vegas Total: 236.0 Pts | Shootout Alert"}
+            {"title": "Denver Nuggets (DEN) vs Los Angeles Lakers (LAL)", "status": "🔴 LIVE • 3rd Quarter (88 - 84) | TNT", "info": "🔥 Vegas Total: 234.5 Pts | Fast Pace Slate"},
+            {"title": "Toronto Raptors (TOR) vs Boston Celtics (BOS)", "status": "🟢 TODAY • Tip-Off 7:30 PM EST (Scotiabank Arena)", "info": "⚡ Vegas Total: 228.0 Pts | Atlantic Division Clash"},
+            {"title": "Golden State Warriors (GSW) vs Phoenix Suns (PHX)", "status": "🟢 TODAY • Tip-Off 10:00 PM EST", "info": "🚀 Vegas Total: 236.0 Pts | Late Night Shootout"}
         ],
         "upcoming_matches": [
-            {"title": "Milwaukee Bucks (MIL) vs New York Knicks (NYK)", "time": "⏳ Tomorrow • 7:30 PM EST", "info": "📊 Early Total: 229.5 Pts | Giannis Probable"},
+            {"title": "Milwaukee Bucks (MIL) vs New York Knicks (NYK)", "time": "⏳ Tomorrow • 7:30 PM EST (MSG)", "info": "📊 Early Total: 229.5 Pts | Giannis Probable"},
             {"title": "Oklahoma City Thunder (OKC) vs Dallas Mavericks (DAL)", "time": "⏳ Tomorrow • 9:30 PM EST", "info": "📊 Early Total: 232.0 Pts | West Top Seed Battle"}
         ],
         "players": {
@@ -529,14 +507,15 @@ SPORTS_DATA = {
             "Vegas_Total": [234.5] * 16
         }
     },
-    "🏒 NHL (Ice Hockey — Canada, US & Europe)": {
+    "🏒 NHL — Ice Hockey (Canada & USA Prime Slate)": {
         "default_format_idx": 1,
         "live_matches": [
             {"title": "Edmonton Oilers (EDM) vs Toronto Maple Leafs (TOR)", "status": "🔴 LIVE • 2nd Period (3 - 2) | Hockey Night in Canada", "info": "🔥 Goal Total: 6.5 | Power-Play Heavy Match"},
-            {"title": "Montreal Canadiens (MTL) vs Boston Bruins (BOS)", "status": "🟢 TODAY • Puck Drop 7:00 PM EST", "info": "⚡ Goal Total: 6.0 | Original Six Rivalry"}
+            {"title": "Montreal Canadiens (MTL) vs Boston Bruins (BOS)", "status": "🟢 TODAY • Puck Drop 7:00 PM EST", "info": "⚡ Goal Total: 6.0 | Original Six Rivalry"},
+            {"title": "Vancouver Canucks (VAN) vs Vegas Golden Knights (VGK)", "status": "🟢 TODAY • Puck Drop 10:00 PM EST", "info": "🚀 Goal Total: 6.5 | Pacific Division Showdown"}
         ],
         "upcoming_matches": [
-            {"title": "Vancouver Canucks (VAN) vs Colorado Avalanche (COL)", "time": "⏳ Tomorrow • 9:30 PM EST", "info": "📊 Early Goal Line: 6.5 | High Shot Volume"},
+            {"title": "Winnipeg Jets (WPG) vs Colorado Avalanche (COL)", "time": "⏳ Tomorrow • 9:00 PM EST", "info": "📊 Early Goal Line: 6.5 | High Shot Volume"},
             {"title": "New York Rangers (NYR) vs Florida Panthers (FLA)", "time": "⏳ Tomorrow • 7:30 PM EST", "info": "📊 Early Goal Line: 6.0 | East Finals Rematch"}
         ],
         "players": {
@@ -550,15 +529,15 @@ SPORTS_DATA = {
             "Vegas_Total": [6.5] * 16
         }
     },
-    "⚾ MLB (Baseball — US & Canada)": {
-        "default_format_idx": 1,
+    "⚾ MLB — Major League Baseball (USA & Toronto Slate)": {
+        "default_format_idx": 2,
         "live_matches": [
             {"title": "Los Angeles Dodgers (LAD) vs New York Yankees (NYY)", "status": "🔴 LIVE • Top 5th Inning (4 - 2)", "info": "🔥 Run Total: 9.5 | Wind Blowing Out 12 mph"},
-            {"title": "Toronto Blue Jays (TOR) vs Philadelphia Phillies (PHI)", "status": "🟢 TODAY • First Pitch 7:05 PM EST", "info": "⚡ Run Total: 8.5 | Rogers Centre Dome"}
+            {"title": "Toronto Blue Jays (TOR) vs Philadelphia Phillies (PHI)", "status": "🟢 TODAY • First Pitch 7:07 PM EST (Rogers Centre)", "info": "⚡ Run Total: 8.5 | High Strikeout & HR Upside"}
         ],
         "upcoming_matches": [
             {"title": "Houston Astros (HOU) vs Texas Rangers (TEX)", "time": "⏳ Tomorrow • 8:05 PM EST", "info": "📊 Early Run Total: 9.0 | Roof Closed"},
-            {"title": "Atlanta Braves (ATL) vs Boston Red Sox (BOS)", "time": "⏳ Tomorrow • 7:10 PM EST", "info": "📊 Early Run Total: 9.5 | Bullpen Game"}
+            {"title": "Atlanta Braves (ATL) vs Boston Red Sox (BOS)", "time": "⏳ Tomorrow • 7:10 PM EST (Fenway Park)", "info": "📊 Early Run Total: 9.5 | Bullpen Game"}
         ],
         "players": {
             "ID": range(1, 17),
@@ -571,125 +550,146 @@ SPORTS_DATA = {
             "Vegas_Total": [9.5] * 16
         }
     },
-    "🥊 UFC / MMA (US, UK & Global PPV)": {
-        "default_format_idx": 0,
+    "🏈🏀 NCAA — College Football & Basketball (US CFB / CBB)": {
+        "default_format_idx": 1,
         "live_matches": [
-            {"title": "Alex Pereira vs Khalil Rountree Jr. (Main Event)", "status": "🔴 LIVE • Main Card Underway", "info": "🔥 KO/TKO Odds: -280 | 5-Round Championship"},
-            {"title": "Tom Aspinall vs Ciryl Gane (UK/EU Heavyweight Co-Main)", "status": "🟢 TODAY • Walkouts at 10:30 PM EST", "info": "⚡ High First-Round Finish Probability"}
+            {"title": "Georgia Bulldogs (UGA) vs Alabama Crimson Tide (ALA)", "status": "🔴 LIVE • 2nd Quarter (17 - 14) | SEC on ABC", "info": "🔥 Vegas Total: 54.5 Pts | Spread: UGA -2.0"},
+            {"title": "Ohio State Buckeyes (OSU) vs Oregon Ducks (ORE)", "status": "🟢 TODAY • Kickoff 7:30 PM EST", "info": "⚡ Vegas Total: 56.0 Pts | Big Ten Shootout"}
         ],
         "upcoming_matches": [
-            {"title": "Jon Jones vs Stipe Miocic (Heavyweight Title)", "time": "⏳ Saturday Night • 10:00 PM EST (PPV)", "info": "📊 Heavyweight Superfight | Finish Rate: 82%"},
-            {"title": "Leon Edwards vs Jack Della Maddalena (UFC London)", "time": "⏳ Next Week • O2 Arena UK", "info": "📊 5-Round Technical Striking Matchup"}
+            {"title": "Texas Longhorns (TEX) vs Oklahoma Sooners (OU)", "time": "⏳ Saturday • 3:30 PM EST (Red River Rivalry)", "info": "📊 Early Vegas Line: 58.5 Pts | High Tempo Offense"},
+            {"title": "Duke Blue Devils vs UNC Tar Heels (College Basketball)", "time": "⏳ Upcoming Prime Slate • 9:00 PM EST (ESPN)", "info": "📊 Early Total: 154.5 Pts | Rivalry Classic"}
         ],
         "players": {
             "ID": range(1, 17),
-            "Player": ["A. Pereira", "I. Makhachev", "J. Jones", "S. O'Malley", "I. Topuria", "M. Holloway", "C. Oliveira", "D. Du Plessis", "K. Chimaev", "J. Gaethje", "A. Volkanovski", "D. Poirier", "T. Aspinall", "M. Dvalishvili", "L. Edwards", "P. Pimblett"],
-            "Team": ["BRA", "DAG", "USA", "USA", "ESP", "USA", "BRA", "RSA", "UAE", "USA", "AUS", "USA", "UK", "GEO", "UK", "UK"],
-            "Pos": ["MMA"] * 16,
-            "Salary": [9500, 9400, 9300, 8900, 9100, 8500, 8700, 8400, 9000, 8200, 8300, 8000, 9200, 8600, 8100, 7800],
-            "Proj_Pts": [105.0, 98.5, 96.0, 91.0, 94.5, 86.0, 89.0, 85.5, 95.0, 82.0, 83.5, 80.0, 97.0, 88.0, 81.5, 79.0],
-            "Ownership_%": [35.0, 32.0, 28.0, 24.0, 26.5, 19.0, 21.0, 17.5, 29.0, 15.0, 16.0, 14.5, 30.0, 20.5, 15.5, 22.0],
-            "Vegas_Total": [2.5] * 16
-        }
-    },
-    "⛳ PGA Tour & DP World Tour (US & European Golf)": {
-        "default_format_idx": 0,
-        "live_matches": [
-            {"title": "The Players Championship — Round 3 Moving Day", "status": "🔴 LIVE • Leaders at -12 Under Par", "info": "🔥 Birdie Fest | Soft Greens & Low Wind"},
-            {"title": "The Open Championship / BMW PGA — Featured Groups", "status": "🟢 TODAY • Tee Times 8:00 AM EST / 1:00 PM BST", "info": "⚡ Strokes Gained Approach Key Metric"}
-        ],
-        "upcoming_matches": [
-            {"title": "The Masters Tournament — Augusta National", "time": "⏳ Upcoming Thursday • 7:30 AM EST", "info": "📊 Major Championship | $20M Purse"},
-            {"title": "Ryder Cup — Europe vs USA", "time": "⏳ Upcoming Feature Slate", "info": "📊 Match Play Scoring Active"}
-        ],
-        "players": {
-            "ID": range(1, 17),
-            "Player": ["S. Scheffler", "R. McIlroy", "X. Schauffele", "J. Rahm", "C. Morikawa", "V. Hovland", "L. Aberg", "B. DeChambeau", "W. Clark", "P. Cantlay", "H. Matsuyama", "T. Fleetwood", "S. Theegala", "J. Thomas", "S. Lowry", "T. Hatton"],
-            "Team": ["USA", "NIR", "USA", "ESP", "USA", "NOR", "SWE", "USA", "USA", "USA", "JPN", "ENG", "USA", "USA", "IRE", "ENG"],
-            "Pos": ["GOLF"] * 16,
-            "Salary": [10400, 10000, 9600, 9400, 9000, 8700, 8900, 9200, 8300, 8500, 8400, 8100, 7800, 7900, 7700, 7600],
-            "Proj_Pts": [88.5, 84.0, 81.5, 79.0, 76.5, 73.0, 75.5, 78.0, 70.5, 72.0, 71.5, 69.0, 67.5, 68.0, 66.5, 66.0],
-            "Ownership_%": [34.0, 27.5, 25.0, 22.0, 19.5, 16.0, 21.0, 24.0, 13.5, 15.0, 16.5, 14.0, 12.0, 13.0, 11.5, 12.5],
-            "Vegas_Total": [72.0] * 16
-        }
-    },
-    "🏎️ Formula 1 & NASCAR (Europe & US Motorsports)": {
-        "default_format_idx": 0,
-        "live_matches": [
-            {"title": "F1 Silverstone / Las Vegas Grand Prix — Race Day", "status": "🔴 LIVE • Track Temp 38°C | High Tire Deg", "info": "🔥 Fastest Lap & Overtake Bonus Points Active"},
-            {"title": "NASCAR Cup Series — Daytona 500", "status": "🟢 TODAY • Green Flag 2:30 PM EST", "info": "⚡ Pack Racing | Place Differential Strategy"}
-        ],
-        "upcoming_matches": [
-            {"title": "F1 Monaco / Monza Grand Prix (European Leg)", "time": "⏳ Sunday • Lights Out 15:00 CET / 9:00 AM EST", "info": "📊 Pole Position & Grid Equity Crucial"},
-            {"title": "F1 Canadian Grand Prix — Circuit Gilles Villeneuve", "time": "⏳ Sunday • 2:00 PM EST", "info": "📊 High Safety Car Probability"}
-        ],
-        "players": {
-            "ID": range(1, 17),
-            "Player": ["M. Verstappen", "L. Norris", "C. Leclerc", "L. Hamilton", "O. Piastri", "C. Sainz", "G. Russell", "F. Alonso", "K. Larson", "D. Hamlin", "S. Perez", "W. Byron", "C. Elliott", "R. Blaney", "L. Stroll", "P. Gasly"],
-            "Team": ["RBR", "MCL", "FER", "MER", "MCL", "FER", "MER", "AMR", "HMS", "JGR", "RBR", "HMS", "HMS", "PENSKE", "AMR", "ALP"],
-            "Pos": ["DRV"] * 16,
-            "Salary": [10200, 9800, 9300, 8900, 9000, 8600, 8400, 7800, 9400, 9100, 8200, 8700, 8300, 8500, 7200, 7100],
-            "Proj_Pts": [45.0, 42.5, 38.0, 35.5, 37.0, 34.5, 33.0, 28.5, 40.0, 38.5, 31.0, 36.0, 33.5, 35.0, 25.0, 24.5],
-            "Ownership_%": [36.0, 31.0, 24.0, 20.0, 22.5, 18.0, 16.5, 12.0, 25.0, 21.0, 14.0, 19.0, 15.5, 17.0, 9.5, 8.5],
+            "Player": ["C. Beck", "J. Milroe", "Q. Ewers", "D. Gabriel", "J. Smith", "R. Williams", "T. Henderson", "A. Jeanty", "C. Ward", "T. Hunter", "S. Sanders", "O. Hampton", "C. Flagg", "R. Davis", "H. Dickinson", "M. Sears"],
+            "Team": ["UGA", "ALA", "TEX", "ORE", "OSU", "ALA", "OSU", "BSU", "MIA", "COL", "COL", "UNC", "DUKE", "UNC", "KAN", "ALA"],
+            "Pos": ["QB", "QB", "QB", "QB", "WR", "WR", "RB", "RB", "QB", "WR", "QB", "RB", "FWD", "G", "C", "G"],
+            "Salary": [9200, 9400, 8900, 9000, 8600, 8500, 8200, 9600, 9100, 8800, 8700, 8000, 8400, 7900, 8100, 7700],
+            "Proj_Pts": [28.5, 31.0, 26.5, 27.8, 24.0, 23.5, 22.0, 33.5, 29.0, 25.5, 26.0, 21.5, 38.0, 34.5, 36.0, 33.0],
+            "Ownership_%": [24.0, 31.0, 20.0, 22.5, 26.0, 25.0, 18.0, 38.0, 23.0, 27.0, 19.5, 15.0, 29.0, 17.0, 21.0, 16.0],
             "Vegas_Total": [55.0] * 16
         }
     },
-    "🎾 Tennis (Wimbledon, US Open, Roland Garros)": {
+    "🥊 UFC / MMA — Las Vegas Fight Night & PPV": {
         "default_format_idx": 0,
         "live_matches": [
-            {"title": "Carlos Alcaraz vs Jannik Sinner (Center Court)", "status": "🔴 LIVE • Set 2 (6-4, 3-3)", "info": "🔥 High Ace & Break Point Conversion Slate"},
-            {"title": "Novak Djokovic vs Daniil Medvedev", "status": "🟢 TODAY • Starts at 4:00 PM EST / 21:00 CET", "info": "⚡ Baseline Marathon Projected"}
+            {"title": "Alex Pereira vs Khalil Rountree Jr. (T-Mobile Arena Vegas)", "status": "🔴 LIVE • Main Card Underway on ESPN+ PPV", "info": "🔥 KO/TKO Odds: -280 | 5-Round Championship"},
+            {"title": "Sean O'Malley vs Merab Dvalishvili (Co-Main Event)", "status": "🟢 TODAY • Walkouts at 11:15 PM EST", "info": "⚡ High-Output Striking & Takedown Volume"}
         ],
         "upcoming_matches": [
-            {"title": "Alexander Zverev vs Taylor Fritz (Quarterfinal)", "time": "⏳ Tomorrow • 1:00 PM EST / 18:00 BST", "info": "📊 Big Server Track | 4+ Sets Likely"},
-            {"title": "Iga Swiatek vs Aryna Sabalenka (Championship Final)", "time": "⏳ Tomorrow • 4:00 PM EST", "info": "📊 Straight Sets Bonus Potential"}
+            {"title": "Jon Jones vs Stipe Miocic (Madison Square Garden NY)", "time": "⏳ Saturday Night • 10:00 PM EST (PPV)", "info": "📊 Heavyweight Title | Finish Rate: 82%"},
+            {"title": "Islam Makhachev vs Arman Tsarukyan", "time": "⏳ Next PPV Slate • 10:00 PM EST", "info": "📊 Elite Grappling & Bonus Points Ceiling"}
         ],
         "players": {
             "ID": range(1, 17),
-            "Player": ["C. Alcaraz", "J. Sinner", "N. Djokovic", "D. Medvedev", "A. Zverev", "T. Fritz", "I. Swiatek", "A. Sabalenka", "C. Gauff", "B. Shelton", "S. Tsitsipas", "A. Rublev", "E. Rybakina", "J. Pegula", "J. Draper", "F. Auger-Aliassime"],
-            "Team": ["ESP", "ITA", "SRB", "RUS", "GER", "USA", "POL", "BLR", "USA", "USA", "GRE", "RUS", "KAZ", "USA", "UK", "CAN"],
-            "Pos": ["TENNIS"] * 16,
-            "Salary": [9900, 9700, 9400, 8900, 9100, 8500, 9500, 9200, 8700, 8000, 8200, 8300, 8800, 8100, 7800, 7600],
-            "Proj_Pts": [72.0, 70.5, 67.0, 62.5, 65.0, 59.0, 69.0, 66.5, 61.0, 56.5, 58.0, 59.5, 63.0, 57.5, 55.0, 53.5],
-            "Ownership_%": [33.0, 31.0, 26.0, 19.0, 22.0, 16.5, 29.0, 25.0, 18.0, 14.0, 15.0, 16.0, 20.0, 13.5, 14.5, 12.0],
-            "Vegas_Total": [22.5] * 16
+            "Player": ["A. Pereira", "I. Makhachev", "J. Jones", "S. O'Malley", "I. Topuria", "M. Holloway", "C. Oliveira", "D. Du Plessis", "K. Chimaev", "J. Gaethje", "A. Volkanovski", "D. Poirier", "T. Aspinall", "M. Dvalishvili", "B. Nickal", "C. Covington"],
+            "Team": ["UFC"] * 16,
+            "Pos": ["MMA"] * 16,
+            "Salary": [9500, 9400, 9300, 8900, 9100, 8500, 8700, 8400, 9000, 8200, 8300, 8000, 9200, 8600, 8800, 7800],
+            "Proj_Pts": [105.0, 98.5, 96.0, 91.0, 94.5, 86.0, 89.0, 85.5, 95.0, 82.0, 83.5, 80.0, 97.0, 88.0, 92.0, 79.0],
+            "Ownership_%": [35.0, 32.0, 28.0, 24.0, 26.5, 19.0, 21.0, 17.5, 29.0, 15.0, 16.0, 14.5, 30.0, 20.5, 25.5, 14.0],
+            "Vegas_Total": [2.5] * 16
         }
     },
-    "🏏 International Cricket (UK The Hundred, T20 World Cup, MLC US)": {
-        "default_format_idx": 2,
+    "⛳ PGA Tour — US & Canadian Open Fantasy Golf": {
+        "default_format_idx": 0,
         "live_matches": [
-            {"title": "England (ENG) vs Australia (AUS) — Lord's / London Slate", "status": "🔴 LIVE • ENG 118/2 (12.0 Overs)", "info": "🔥 Pitch Report: High Scoring | Proj Total: 205+"},
-            {"title": "India (IND) vs South Africa (SA) — ICC Feature Match", "status": "🟢 TODAY • Starts in 3 Hours", "info": "⚡ High Pace Bounce | Death Bowlers Crucial"}
+            {"title": "The Players Championship — TPC Sawgrass Round 3", "status": "🔴 LIVE • Leaders at -12 Under Par (NBC/Golf Channel)", "info": "🔥 Birdie Fest | Soft Greens & Low Wind"},
+            {"title": "RBC Canadian Open — Featured Groups", "status": "🟢 TODAY • Tee Times 8:00 AM - 2:00 PM EST", "info": "⚡ Strokes Gained Approach Key Metric"}
         ],
         "upcoming_matches": [
-            {"title": "New Zealand (NZ) vs West Indies (WI)", "time": "⏳ Tomorrow • Prime Time Slate", "info": "📊 High Six-Hitting Venue | Short Boundaries"},
-            {"title": "Oval Invincibles vs Trent Rockets (UK Hundred)", "time": "⏳ Tomorrow • 18:30 BST London", "info": "📊 All-Rounders Heavy Value Slate"}
+            {"title": "The Masters Tournament — Augusta National", "time": "⏳ Upcoming Thursday • 7:30 AM EST", "info": "📊 Major Championship | $20M Purse"},
+            {"title": "U.S. Open Championship — Pinehurst No. 2", "time": "⏳ Next Major Slate", "info": "📊 Driving Accuracy & Scrambling Crucial"}
         ],
         "players": {
             "ID": range(1, 17),
-            "Player": ["J. Buttler", "T. Head", "V. Kohli", "J. Bumrah", "H. Pandya", "G. Maxwell", "H. Klaasen", "M. Starc", "P. Salt", "S. Yadav", "R. Sharma", "P. Cummins", "K. Rabada", "A. Zampa", "J. Archer", "S. Curran"],
-            "Team": ["ENG", "AUS", "IND", "IND", "IND", "AUS", "SA", "AUS", "ENG", "IND", "IND", "AUS", "SA", "AUS", "ENG", "ENG"],
-            "Pos": ["WK", "BAT", "BAT", "BOWL", "AR", "AR", "WK", "BOWL", "WK", "BAT", "BAT", "AR", "BOWL", "BOWL", "BOWL", "AR"],
-            "Salary": [9300, 9100, 9400, 9200, 8900, 8700, 8800, 8400, 8600, 9000, 8800, 8300, 8100, 7800, 8200, 7900],
-            "Proj_Pts": [66.5, 64.0, 68.5, 65.0, 66.0, 61.0, 60.0, 55.0, 61.5, 64.5, 59.0, 56.0, 54.5, 52.5, 57.5, 55.5],
-            "Ownership_%": [31.0, 29.0, 36.0, 34.0, 30.0, 22.0, 19.0, 15.0, 24.0, 32.0, 25.0, 18.0, 16.5, 14.0, 20.0, 17.5],
-            "Vegas_Total": [205.0] * 16
+            "Player": ["S. Scheffler", "R. McIlroy", "X. Schauffele", "J. Rahm", "C. Morikawa", "V. Hovland", "L. Aberg", "B. DeChambeau", "W. Clark", "P. Cantlay", "H. Matsuyama", "T. Finau", "S. Theegala", "J. Thomas", "C. Conners", "N. Taylor"],
+            "Team": ["USA", "NIR", "USA", "ESP", "USA", "NOR", "SWE", "USA", "USA", "USA", "JPN", "USA", "USA", "USA", "CAN", "CAN"],
+            "Pos": ["GOLF"] * 16,
+            "Salary": [10400, 10000, 9600, 9400, 9000, 8700, 8900, 9200, 8300, 8500, 8400, 8100, 7800, 7900, 7700, 7500],
+            "Proj_Pts": [88.5, 84.0, 81.5, 79.0, 76.5, 73.0, 75.5, 78.0, 70.5, 72.0, 71.5, 69.0, 67.5, 68.0, 66.5, 65.0],
+            "Ownership_%": [34.0, 27.5, 25.0, 22.0, 19.5, 16.0, 21.0, 24.0, 13.5, 15.0, 16.5, 14.0, 12.0, 13.0, 14.5, 11.5],
+            "Vegas_Total": [72.0] * 16
+        }
+    },
+    "🏎️ NASCAR Cup Series & Formula 1 (North America Racing)": {
+        "default_format_idx": 0,
+        "live_matches": [
+            {"title": "NASCAR Cup Series — Daytona 500 / Talladega Superspeedway", "status": "🔴 LIVE • Stage 2 Green Flag | FOX Sports", "info": "🔥 Pack Racing | Place Differential & Laps Led Strategy"},
+            {"title": "F1 Las Vegas / Miami Grand Prix", "status": "🟢 TODAY • Lights Out 10:00 PM EST", "info": "⚡ High Overtake & Fastest Lap Bonus Active"}
+        ],
+        "upcoming_matches": [
+            {"title": "NASCAR Coca-Cola 600 — Charlotte Motor Speedway", "time": "⏳ Sunday • 6:00 PM EST", "info": "📊 400 Laps Dominator Points Available"},
+            {"title": "F1 Canadian Grand Prix — Circuit Gilles Villeneuve Montreal", "time": "⏳ Sunday • 2:00 PM EST", "info": "📊 High Safety Car Probability"}
+        ],
+        "players": {
+            "ID": range(1, 17),
+            "Player": ["K. Larson", "D. Hamlin", "W. Byron", "C. Elliott", "R. Blaney", "T. Reddick", "C. Bell", "J. Logano", "M. Verstappen", "L. Norris", "C. Leclerc", "L. Hamilton", "O. Piastri", "G. Russell", "S. Perez", "L. Stroll"],
+            "Team": ["HMS", "JGR", "HMS", "HMS", "PENSKE", "23XI", "JGR", "PENSKE", "RBR", "MCL", "FER", "MER", "MCL", "MER", "RBR", "AMR"],
+            "Pos": ["DRV"] * 16,
+            "Salary": [10200, 9900, 9500, 9100, 9300, 8900, 9000, 8600, 10400, 9800, 9200, 8700, 8800, 8400, 8000, 7400],
+            "Proj_Pts": [54.0, 51.5, 48.0, 45.5, 47.0, 44.5, 46.0, 42.0, 49.0, 46.5, 41.0, 38.5, 40.0, 36.5, 34.0, 29.5],
+            "Ownership_%": [34.0, 29.0, 25.0, 22.0, 24.0, 19.5, 21.0, 17.0, 36.0, 30.0, 20.0, 18.0, 19.0, 15.0, 13.0, 10.5],
+            "Vegas_Total": [55.0] * 16
+        }
+    },
+    "⚽ MLS & Champions League Soccer (US & Canada DraftKings)": {
+        "default_format_idx": 1,
+        "live_matches": [
+            {"title": "Inter Miami CF vs Los Angeles FC (MLS Prime Slate)", "status": "🔴 LIVE • 65' Min (2 - 1) | Apple TV MLS Season Pass", "info": "🔥 Goal Total: 3.5 | High Shot & Cross Volume"},
+            {"title": "Toronto FC vs Vancouver Whitecaps (Canadian Rivalry)", "status": "🟢 TODAY • Kickoff 7:30 PM EST", "info": "⚡ Goal Total: 3.0 | Set-Piece Heavy Slate"}
+        ],
+        "upcoming_matches": [
+            {"title": "LA Galaxy vs Seattle Sounders FC", "time": "⏳ Tomorrow • 10:30 PM EST", "info": "📊 Early Goal Line: 3.5 | Attacking Slate"},
+            {"title": "Real Madrid vs Manchester City (UCL US Afternoon Slate)", "time": "⏳ Tuesday • 3:00 PM EST (Paramount+)", "info": "📊 Early Goal Line: 3.5 | High Ceiling Showdown"}
+        ],
+        "players": {
+            "ID": range(1, 17),
+            "Player": ["L. Messi", "L. Suarez", "D. Bouanga", "C. Hernandez", "R. Puig", "E. Haaland", "K. Mbappe", "V. Junior", "J. Bellingham", "M. Salah", "B. Saka", "C. Palmer", "K. De Bruyne", "F. Bernardeschi", "L. Insigne", "R. Gauld"],
+            "Team": ["MIA", "MIA", "LAFC", "CLB", "LAG", "MCI", "RMA", "RMA", "RMA", "LIV", "ARS", "CHE", "MCI", "TOR", "TOR", "VAN"],
+            "Pos": ["FWD", "FWD", "FWD", "FWD", "MID", "FWD", "FWD", "FWD", "MID", "FWD", "MID", "MID", "MID", "FWD", "FWD", "MID"],
+            "Salary": [10400, 9500, 9300, 9100, 8600, 10000, 9800, 9200, 8700, 9000, 8500, 8400, 8200, 7900, 7700, 8000],
+            "Proj_Pts": [28.5, 23.5, 23.0, 22.0, 20.5, 26.5, 25.8, 22.5, 20.0, 21.8, 19.5, 19.8, 19.0, 18.2, 17.5, 18.8],
+            "Ownership_%": [38.0, 27.0, 25.0, 23.0, 19.0, 32.0, 29.5, 21.0, 18.0, 22.0, 17.5, 20.0, 16.0, 15.0, 14.0, 16.5],
+            "Vegas_Total": [3.5] * 16
+        }
+    },
+    "🎾 Tennis — US Open & Canadian National Bank Open": {
+        "default_format_idx": 0,
+        "live_matches": [
+            {"title": "Taylor Fritz vs Frances Tiafoe (Arthur Ashe Stadium NY)", "status": "🔴 LIVE • Set 2 (6-4, 4-3) | ESPN", "info": "🔥 All-American Showdown | High Ace Bonus Slate"},
+            {"title": "Carlos Alcaraz vs Jannik Sinner", "status": "🟢 TODAY • Night Session 7:00 PM EST", "info": "⚡ Hardcourt Baseline Marathon Projected"}
+        ],
+        "upcoming_matches": [
+            {"title": "Felix Auger-Aliassime vs Denis Shapovalov (Montreal/Toronto)", "time": "⏳ Tomorrow • 1:00 PM EST", "info": "📊 Canadian Hardcourt Clash | 3+ Sets Likely"},
+            {"title": "Coco Gauff vs Aryna Sabalenka (US Open Final)", "time": "⏳ Tomorrow • 4:00 PM EST", "info": "📊 Straight Sets Bonus Potential"}
+        ],
+        "players": {
+            "ID": range(1, 17),
+            "Player": ["T. Fritz", "C. Alcaraz", "J. Sinner", "N. Djokovic", "B. Shelton", "F. Tiafoe", "T. Paul", "C. Gauff", "J. Pegula", "A. Sabalenka", "I. Swiatek", "F. Auger-Aliassime", "D. Shapovalov", "L. Fernandez", "D. Medvedev", "A. Zverev"],
+            "Team": ["USA", "ESP", "ITA", "SRB", "USA", "USA", "USA", "USA", "USA", "BLR", "POL", "CAN", "CAN", "CAN", "RUS", "GER"],
+            "Pos": ["TENNIS"] * 16,
+            "Salary": [9400, 10000, 9800, 9500, 8600, 8400, 8500, 9200, 8800, 9300, 9600, 8100, 7800, 8000, 8900, 9000],
+            "Proj_Pts": [66.0, 72.0, 70.5, 67.5, 60.5, 58.5, 59.5, 65.0, 61.5, 66.5, 68.5, 56.5, 54.0, 55.5, 62.5, 64.0],
+            "Ownership_%": [28.0, 34.0, 31.0, 26.0, 21.0, 18.5, 19.0, 27.0, 22.0, 25.0, 29.0, 16.5, 14.0, 15.5, 19.5, 20.5],
+            "Vegas_Total": [22.5] * 16
         }
     }
 }
 
 selected_sport = st.selectbox(
-    "🌍 Choose Your Game / Global League (US 🇺🇸 • Canada 🇨🇦 • Europe 🇪🇺🇬🇧):",
+    "🇺🇸🇨🇦 Choose Your North American Sport League (10 Leagues Active):",
     list(SPORTS_DATA.keys())
 )
 
 match_view = st.radio(
     "Select Match View:",
-    ["🔴 Live & Today's Matches", "⏳ Upcoming Matches (Next 48 Hrs)"],
+    ["🔴 Live & Today's Slates (EST)", "⏳ Upcoming Slates (Next 48 Hrs EST)"],
     horizontal=True
 )
 
-if match_view == "🔴 Live & Today's Matches":
+if match_view == "🔴 Live & Today's Slates (EST)":
     for m in SPORTS_DATA[selected_sport]["live_matches"]:
         st.markdown(f"""
         <div class='live-card'>
@@ -710,11 +710,11 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
-all_match_titles = ["🔥 Full Main Slate (All Today's Matches)"] + [m["title"] for m in SPORTS_DATA[selected_sport]["live_matches"]] + [u["title"] + " (Upcoming)" for u in SPORTS_DATA[selected_sport]["upcoming_matches"]]
-selected_slate = st.selectbox("🎯 Select Target Match / Contest Slate for Optimizer:", all_match_titles)
+all_match_titles = ["🔥 Full Main Slate (All Today's Games)"] + [m["title"] for m in SPORTS_DATA[selected_sport]["live_matches"]] + [u["title"] + " (Upcoming)" for u in SPORTS_DATA[selected_sport]["upcoming_matches"]]
+selected_slate = st.selectbox("🎯 Select Target Game / Contest Slate for Optimizer:", all_match_titles)
 
-st.markdown("#### 📥 Custom CSV Upload (Optional)")
-uploaded_file = st.file_uploader("Upload Custom DFS CSV Data (Or use Auto-Loaded Slate Data)", type=["csv"])
+st.markdown("#### 📥 Custom DraftKings / FanDuel CSV Upload (Optional)")
+uploaded_file = st.file_uploader("Upload Custom DFS CSV Data (Or use Auto-Loaded Vegas Slate Data)", type=["csv"])
 
 if uploaded_file is not None:
     try:
@@ -727,7 +727,7 @@ else:
     df = pd.DataFrame(SPORTS_DATA[selected_sport]["players"])
 
 # ==========================================
-# 🧠 MULTI-REGIONAL SOLVER (EXACT $50,000 CAP CALIBRATION FOR ALL FORMATS)
+# 🧠 NORTH AMERICAN SOLVER ($50,000 SALARY CAP CALIBRATED FOR 6, 8 & 9 PLAYERS)
 # ==========================================
 def run_god_mode_solver(data, lineups_count, cap, strategy_mode, locked_players, excluded_players, roster_size):
     lineups, stats = [], []
@@ -735,7 +735,6 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode, locked_players,
     if len(base_data) < roster_size:
         return [], []
         
-    # Smart Salary Calibration: Ensures 6, 8, or 11 players fit cleanly inside the $50,000 DraftKings Cap!
     avg_raw_sal = base_data["Salary"].mean()
     target_avg_sal = (cap * 0.96) / roster_size
     if avg_raw_sal * roster_size > cap * 0.98:
@@ -759,11 +758,11 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode, locked_players,
             if base_data["Player"][idx] in locked_players:
                 prob += p_vars[idx] == 1
                 
-        if strategy_mode == "💣 Mega Grand League / GPP (High Ceiling)":
+        if strategy_mode == "💣 Mega GPP Tournament (High Ceiling / Low Ownership)":
             prob += pulp.lpSum([base_data["Ownership_%"][idx] * p_vars[idx] for idx in base_data.index]) <= (roster_size * 26)
         
         for prev_raw in lineups:
-            clean_prev = [p.replace(" 👑(C)", "").replace(" ⚡(VC)", "") for p in prev_raw]
+            clean_prev = [p.replace(" 👑(CPT)", "").replace(" ⚡(MVP)", "") for p in prev_raw]
             prob += pulp.lpSum([p_vars[idx] for idx in base_data.index if base_data["Player"][idx] in clean_prev]) <= (roster_size - 1)
             
         prob.solve(pulp.PULP_CBC_CMD(msg=0))
@@ -776,9 +775,9 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode, locked_players,
             for rank_idx, p_idx in enumerate(chosen_sorted):
                 p_name = base_data["Player"][p_idx]
                 if rank_idx == 0:
-                    formatted_lineup.append(f"{p_name} 👑(C)")
+                    formatted_lineup.append(f"{p_name} 👑(CPT)")
                 elif rank_idx == 1:
-                    formatted_lineup.append(f"{p_name} ⚡(VC)")
+                    formatted_lineup.append(f"{p_name} ⚡(MVP)")
                 else:
                     formatted_lineup.append(p_name)
                     
@@ -815,19 +814,18 @@ if app_mode == "🚀 Auto-Pilot Engine":
     st.markdown(f"<p style='color:#00FF41; font-weight:bold;'>Active Contest Slate: {selected_slate}</p>", unsafe_allow_html=True)
     st.markdown("""
     <div class='strategy-box'>
-        <b style='color:#FFD700; font-size:16px;'>Step 3: Smart Auto-Detected Roster Format (US • Canada • Europe)</b><br>
-        <span style='color:white;'>Automatically switches to 11-Player Matchday XI for Soccer/Cricket and 6/8-Player DraftKings Mode ($50,000 Official Cap) for US Sports!</span>
+        <b style='color:#FFD700; font-size:16px;'>Step 3: Select Official US & Canada DFS Roster Format ($50,000 Cap)</b><br>
+        <span style='color:white;'>Built specifically for DraftKings, FanDuel, PrizePicks & Underdog Fantasy players in the USA & Canada.</span>
     </div>
     """, unsafe_allow_html=True)
     
-    # SMART AUTO-SWITCH BASED ON SELECTED SPORT
     auto_idx = SPORTS_DATA[selected_sport]["default_format_idx"]
     regional_format = st.radio(
-        "🌍 Choose Regional Contest Format (Auto-Matched to Sport):",
+        "🇺🇸🇨🇦 Choose North American Contest Format:",
         [
-            "🇺🇸🇨🇦 US/Canada Showdown Mode (6 Players | $50,000 DraftKings / FanDuel Cap)",
-            "🇺🇸🇨🇦 US/Canada Classic Full Slate (8 Players | $50,000 Main Slate Roster)",
-            "🇪🇺🇬🇧 European Matchday XI (11 Players | Soccer & Cricket Full Squad + C/VC)"
+            "⚡ Showdown / Single-Game Mode (6 Players | $50,000 Cap — 1 CPT + 5 FLEX)",
+            "🏆 Classic Main Slate Roster (8 Players | $50,000 Cap — NBA / NHL / College / Soccer)",
+            "🏈 Classic Full Lineup Roster (9 Players | $50,000 Cap — NFL / MLB Full Slate)"
         ],
         index=auto_idx
     )
@@ -835,17 +833,17 @@ if app_mode == "🚀 Auto-Pilot Engine":
     if "6 Players" in regional_format:
         roster_size = 6
         default_cap = 50000
-        col_names = ["👑 Captain (2x)", "⚡ Vice-Capt (1.5x)", "Flex 1", "Flex 2", "Flex 3", "Flex 4"]
+        col_names = ["👑 Captain (1.5x)", "⚡ MVP Anchor", "UTIL 1", "UTIL 2", "UTIL 3", "UTIL 4"]
     elif "8 Players" in regional_format:
         roster_size = 8
         default_cap = 50000
-        col_names = ["👑 Captain (2x)", "⚡ MVP (1.5x)", "Core 1", "Core 2", "Core 3", "Core 4", "Core 5", "Core 6"]
+        col_names = ["👑 Star Lock", "⚡ Co-Star", "Core 1", "Core 2", "Core 3", "Core 4", "FLEX 1", "FLEX 2"]
     else:
-        roster_size = 11
+        roster_size = 9
         default_cap = 50000
-        col_names = ["👑 Captain (2x)", "⚡ Vice-Capt (1.5x)", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10", "P11"]
+        col_names = ["👑 QB/SP Anchor", "⚡ Stack 1", "Core 2", "Core 3", "Core 4", "Core 5", "Core 6", "FLEX", "DST/UTIL"]
         
-    strategy = st.radio("Target Contest Type:", ["🛡️ Head-to-Head / Cash Game (Safe Floor)", "💣 Mega Grand League / GPP (High Ceiling)"])
+    strategy = st.radio("Target Contest Type:", ["🛡️ 50/50 & Head-to-Head Cash Game (Safe Floor)", "💣 Mega GPP Tournament (High Ceiling / Low Ownership)"])
     
     col_lk1, col_lk2 = st.columns(2)
     with col_lk1:
@@ -855,7 +853,7 @@ if app_mode == "🚀 Auto-Pilot Engine":
         excluded_players = st.multiselect("❌ Exclude / Fade Injured Players:", available_to_exclude)
         
     num_lineups = st.slider("🎯 Number of Lineups (Monte Carlo Sim)", 1, 150, 20)
-    salary_cap = st.number_input("💰 Official Contest Salary Cap ($ / € / £)", value=default_cap, step=1000)
+    salary_cap = st.number_input("💰 Official Contest Salary Cap ($ USD)", value=default_cap, step=1000)
     
     st.write("")
     if st.button("🔥 RUN 1000% AUTO-PILOT OPTIMIZER", use_container_width=True):
@@ -865,8 +863,8 @@ if app_mode == "🚀 Auto-Pilot Engine":
         for percent in range(100):
             time.sleep(0.008)
             progress_bar.progress(percent + 1)
-            if percent < 50: status_text.text(f"Running {roster_size}-Player Simulations ($50,000 Cap) for {selected_slate}...")
-            else: status_text.text("Optimizing 👑 Captain (2x) & ⚡ Vice-Captain (1.5x) Combinations...")
+            if percent < 50: status_text.text(f"Running {roster_size}-Player Vegas Simulations ($50,000 Cap)...")
+            else: status_text.text("Optimizing DraftKings / FanDuel Winning Stacks...")
             
         status_text.text("✅ EXECUTION COMPLETE.")
         
@@ -876,11 +874,11 @@ if app_mode == "🚀 Auto-Pilot Engine":
             st.success(f"🏆 {len(final_lineups)} WINNING {roster_size}-PLAYER LINEUPS GENERATED (UNDER ${salary_cap:,} CAP)!")
             df_out = pd.DataFrame(final_lineups, columns=col_names)
             df_out["Metrics"] = stat_list
-            df_out.index = [f"Team-{i+1}" for i in range(len(df_out))]
+            df_out.index = [f"Lineup-{i+1}" for i in range(len(df_out))]
             st.dataframe(df_out, use_container_width=True)
             
             csv = df_out.to_csv().encode('utf-8')
-            st.download_button("💾 DOWNLOAD MASTER CSV", csv, "ProStack_Global_Lineups.csv", "text/csv", use_container_width=True)
+            st.download_button("💾 DOWNLOAD DRAFTKINGS / FANDUEL CSV", csv, "ProStack_US_Lineups.csv", "text/csv", use_container_width=True)
         else:
             st.error("Engine Overload: Too many players excluded. Reduce excluded players and try again.")
 
@@ -898,12 +896,12 @@ elif app_mode == "📊 The Terminal (Player Data)":
                  use_container_width=True, hide_index=True)
 
 elif app_mode == "📰 Live Match News":
-    st.subheader(f"🚨 Live Breaking News — {selected_sport}")
+    st.subheader(f"🚨 Vegas & Rotowire Breaking News — {selected_sport}")
     st.markdown("""
     <div class='news-box-red' style='background-color: #1A202C; padding: 15px; border-radius: 8px; border-left: 4px solid #FF3131; margin-bottom: 15px;'>
-        <b style='color:#FF3131; font-size:16px;'>⚠️ LATE SWAP & INJURY ALERTS (US • CANADA • EUROPE DESK)</b><br>
+        <b style='color:#FF3131; font-size:16px;'>⚠️ LATE SWAP & INJURY ALERTS (LAS VEGAS & TORONTO DESK)</b><br>
         <span style='color:white;'>• <b>Key Starter</b> - Game-Time Decision (Use Lock/Exclude in Engine if ruled out)<br>
-        • <b>Weather / Pitch Alert</b> - High scoring conditions projected for tonight's main slate!</span><br>
+        • <b>Vegas Line Movement</b> - Sharp money hitting the Over on tonight's main slate!</span><br>
     </div>
     """, unsafe_allow_html=True)
 
@@ -915,9 +913,9 @@ elif app_mode == "📉 Pro Analytics":
 elif app_mode == "💎 VIP Upgrade & Support Center":
     st.markdown(f"""
     <div class='vip-box'>
-        <h2 style='color: #00BFFF !important;'>💎 VIP MEMBERSHIP & 24/7 SUPPORT CENTER</h2>
+        <h2 style='color: #00BFFF !important;'>💎 VIP MEMBERSHIP & 24/7 SUPPORT CENTER (USA & CANADA)</h2>
         <p style='color: white;'>Logged in as: <b>{st.session_state.user_email}</b> | Current Validity: <b>{exp_info}</b></p>
-        <p style='color: #A0AEC0;'>Extend your subscription anytime (USD / CAD / EUR / GBP) or reach out to our VIP Concierge Desk.</p>
+        <p style='color: #A0AEC0;'>Extend your subscription anytime ($ USD / $ CAD) or reach out to our North American VIP Concierge Desk.</p>
     </div>
     """, unsafe_allow_html=True)
     
