@@ -66,7 +66,7 @@ def extend_subscription(email, days):
 
 def get_user_status(email):
     if email == "ADMIN":
-        return True, "VIP Admin"
+        return True, "Unlimited (VIP Admin)"
         
     conn = sqlite3.connect('prostack_users.db')
     c = conn.cursor()
@@ -112,6 +112,12 @@ hide_st_style = """
             .stSelectbox label p, .stSlider label p, .stNumberInput label p, .stFileUploader label p { color: #FFFFFF !important; }
             h1, h2, h3, h4, h5, h6 { color: #00FF41 !important; }
             
+            /* Button Visibility Fix */
+            .stButton > button { background-color: #1A202C !important; border: 2px solid #00FF41 !important; border-radius: 8px !important; }
+            .stButton > button p, .stButton > button span { color: #00FF41 !important; font-weight: bold !important; }
+            .stDownloadButton > button { background-color: #00FF41 !important; border: none !important; }
+            .stDownloadButton > button p { color: #000000 !important; font-weight: 900 !important; }
+            
             div[data-baseweb="select"] span { color: #000000 !important; font-weight: bold !important; }
             div[data-testid="stFileUploaderDropzone"] * { color: #000000 !important; font-weight: bold !important; }
             div[data-testid="stFileUploaderDropzone"] button { border-color: #00FF41 !important; color: #000000 !important; }
@@ -149,7 +155,7 @@ if not st.session_state.logged_in:
         if auth_mode == "Login":
             l_email = st.text_input("Email Address")
             l_password = st.text_input("Password", type="password")
-            if st.button("🔥 LOGIN TO ENGINE", use_container_width=True, type="primary"):
+            if st.button("🔥 LOGIN TO ENGINE", use_container_width=True):
                 if l_email == "admin@prostack.ai" and l_password == "ceo2000cr":
                     st.session_state.logged_in = True
                     st.session_state.user_email = "ADMIN"
@@ -165,7 +171,7 @@ if not st.session_state.logged_in:
         else:
             s_email = st.text_input("Enter Your Email Address")
             s_password = st.text_input("Create Password", type="password")
-            if st.button("🚀 CREATE ACCOUNT", use_container_width=True, type="primary"):
+            if st.button("🚀 CREATE ACCOUNT", use_container_width=True):
                 if "@" in s_email and len(s_password) >= 6:
                     if add_user(s_email, s_password, days=30):
                         st.success("✅ Account created successfully! 30 Days Free Trial Granted. Please login.")
@@ -176,13 +182,13 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==========================================
-# 👑 CEO ADMIN CONTROL ROOM
+# 👑 CEO ADMIN CONTROL ROOM (TOP SECTION)
 # ==========================================
 if st.session_state.user_email == "ADMIN":
     st.markdown("""
     <div class='admin-box'>
         <h2 style='color: #FFD700 !important;'>👑 CEO ADMIN CONTROL ROOM</h2>
-        <p style='color: white;'>Aap yahan saare registered users ka data dekh aur manage kar sakte hain:</p>
+        <p style='color: white;'>Aap yahan saare registered users ka data dekh aur manage kar sakte hain, aur iske theek niche aapka Auto-Pilot Engine active hai:</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -190,7 +196,6 @@ if st.session_state.user_email == "ADMIN":
     users_df = pd.read_sql_query("SELECT * FROM users", conn)
     conn.close()
     
-    # Stats Counters
     total_users = len(users_df)
     active_users = len(users_df[users_df['status'] == 'Active']) if total_users > 0 else 0
     
@@ -200,7 +205,6 @@ if st.session_state.user_email == "ADMIN":
     with col_m2:
         st.metric("🟢 Active Subscriptions", active_users)
         
-    st.divider()
     st.dataframe(users_df, use_container_width=True)
     
     col_a, col_b = st.columns(2)
@@ -209,22 +213,18 @@ if st.session_state.user_email == "ADMIN":
     with col_b:
         action = st.selectbox("Action", ["Active", "Blocked"])
         
-    if st.button("⚡ Update User Status"):
+    if st.button("⚡ Update User Status", use_container_width=True):
         if target_email and target_email != "None":
             conn = sqlite3.connect('prostack_users.db')
             c = conn.cursor()
             c.execute("UPDATE users SET status = ? WHERE email = ?", (action, target_email))
             conn.commit()
             conn.close()
-            st.success(f"User {target_email} status updated to {action}!")
+            st.success(f"✅ User {target_email} status updated to {action}!")
+            time.sleep(1)
             st.rerun()
             
-    st.write("")
-    if st.button("🚪 Logout Admin", use_container_width=True):
-        st.session_state.logged_in = False
-        st.session_state.user_email = ""
-        st.rerun()
-    st.stop()
+    st.divider()
 
 # ==========================================
 # 🟢 CHECK SUBSCRIPTION STATUS
@@ -232,7 +232,7 @@ if st.session_state.user_email == "ADMIN":
 is_active, exp_info = get_user_status(st.session_state.user_email)
 
 st.markdown(f'<p class="god-title">⚡ ProStack AI</p>', unsafe_allow_html=True)
-st.markdown(f'<p class="sub-text">Welcome, {st.session_state.user_email} | Status: {"🟢 Active" if is_active else "🔴 Expired"}</p>', unsafe_allow_html=True)
+st.markdown(f'<p class="sub-text">Welcome, {st.session_state.user_email} | Status: {"🟢 Active (" + exp_info + ")" if is_active else "🔴 Expired"}</p>', unsafe_allow_html=True)
 st.divider()
 
 if not is_active:
@@ -255,15 +255,20 @@ if not is_active:
         "🥉 6 Months Plan - Best Value ($139 / ₹11,500)": 180,
         "👑 1 Year VIP Pass ($249 / ₹20,000)": 365
     }
-    if st.button("🚀 PROCEED TO SECURE PAYMENT & RENEW", type="primary", use_container_width=True):
+    if st.button("🚀 PROCEED TO SECURE PAYMENT & RENEW", use_container_width=True):
         if extend_subscription(st.session_state.user_email, days_map[plan]):
             st.success("✅ Renewed Successfully! Refreshing...")
             time.sleep(2)
             st.rerun()
+            
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state.logged_in = False
+        st.session_state.user_email = ""
+        st.rerun()
     st.stop()
 
 # ==========================================
-# 🚀 ACTIVE USER / ADMIN MAIN DFS ENGINE APP
+# 🚀 MAIN DFS ENGINE & PLAYER MATRIX (FOR BOTH ADMIN & USERS)
 # ==========================================
 
 st.markdown("### 📥 Step 1: Upload Match Data")
@@ -346,7 +351,7 @@ if app_mode == "🚀 Auto-Pilot Engine":
     salary_cap = st.number_input("💰 Salary Cap", value=50000, step=100)
     
     st.write("")
-    if st.button("🔥 RUN AUTO-PILOT OPTIMIZER", type="primary", use_container_width=True):
+    if st.button("🔥 RUN AUTO-PILOT OPTIMIZER", use_container_width=True):
         progress_bar = st.progress(0)
         status_text = st.empty()
         
@@ -399,9 +404,8 @@ elif app_mode == "📉 Pro Analytics":
     fig1 = px.scatter(df, x="Salary", y="Proj_Pts", color="Pos", hover_name="Player", template="plotly_dark", title="Value Matrix")
     st.plotly_chart(fig1, use_container_width=True)
 
-# LOGOUT BUTTON
-st.sidebar.markdown("---")
-if st.sidebar.button("🚪 Logout"):
+st.divider()
+if st.button("🚪 Logout Account", use_container_width=True):
     st.session_state.logged_in = False
     st.session_state.user_email = ""
     st.rerun()
