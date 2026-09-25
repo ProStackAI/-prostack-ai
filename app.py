@@ -19,7 +19,6 @@ st.set_page_config(
 
 SUPPORT_TELEGRAM_URL = "https://t.me/ProStackAI_Official"
 APP_PUBLIC_URL = "https://prostackai.streamlit.app"
-STRIPE_VIP_URL = "https://buy.stripe.com/test_vip_link"  # Replace with live Stripe link anytime
 
 # ==========================================
 # 2. ULTRA DARK QUANT UI STYLING
@@ -93,7 +92,6 @@ def init_db():
             payout REAL
         )
     """)
-    # Ensure default admin exists
     admin_email = "admin@prostackai.com"
     admin_hash = hashlib.sha256("ProStackAdmin2026!".encode()).hexdigest()
     now_str = datetime.utcnow().isoformat()
@@ -140,19 +138,8 @@ def authenticate_user(email: str, pw: str):
         }
     return None
 
-def check_vip_active(user_dict) -> bool:
-    if not user_dict:
-        return False
-    if user_dict.get("is_vip") or user_dict.get("is_admin"):
-        return True
-    try:
-        t_end = datetime.fromisoformat(user_dict["trial_until"])
-        return datetime.utcnow() <= t_end
-    except Exception:
-        return True
-
 # ==========================================
-# 4. 10 LEAGUES CONFIG & PRO DEMO SLATE GENERATOR
+# 4. 10 LEAGUES CONFIG & FAST CACHED SLATE
 # ==========================================
 LEAGUE_CONFIGS = {
     "NFL": {"cap": 50000, "size": 9, "positions": ["QB", "RB", "WR", "TE", "DST"]},
@@ -167,6 +154,7 @@ LEAGUE_CONFIGS = {
     "Tennis": {"cap": 50000, "size": 6, "positions": ["PLAYER"]}
 }
 
+@st.cache_data(ttl=3600)
 def generate_pro_slate(league: str) -> pd.DataFrame:
     cfg = LEAGUE_CONFIGS[league]
     pos_list = cfg["positions"]
@@ -218,19 +206,18 @@ def generate_pro_slate(league: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 # ==========================================
-# 5. 10,000x MONTE CARLO ENGINE & PULP SOLVER
+# 5. CACHED 10,000x MONTE CARLO & PULP ENGINE
 # ==========================================
+@st.cache_data(show_spinner=False)
 def run_monte_carlo_simulation(df: pd.DataFrame, n_sims: int = 10000, weather_impact: float = 0.0) -> pd.DataFrame:
     df = df.copy()
-    # Apply Injury Usage Boost: If a teammate is marked OUT, boost active teammates by +15%
     out_teams = df[df["Status"] == "OUT 🚑"]["Team"].unique().tolist()
-    df["Adj_Proj"] = df["Projection"]
+    df["Adj_Proj"] = df["Projection"].astype(float)
     for t in out_teams:
         df.loc[(df["Team"] == t) & (df["Status"] != "OUT 🚑"), "Adj_Proj"] *= 1.15
 
-    # Apply Weather & Vegas Environment Multiplier
     df["Adj_Proj"] = df["Adj_Proj"] * (1.0 + (weather_impact / 100.0))
-    df["Adj_Proj"] = np.where(df["Status"] == "OUT 🚑", 0.0, df["Adj_Proj"])
+    df["Adj_Proj"] = np.where(df["Status"] == "OUT 🚑", 0.0, np.round(df["Adj_Proj"], 2))
 
     floors, ceilings, boom_rates, leverage_scores = [], [], [], []
     rng = np.random.default_rng(12345)
@@ -245,11 +232,10 @@ def run_monte_carlo_simulation(df: pd.DataFrame, n_sims: int = 10000, weather_im
             leverage_scores.append(0.0)
             continue
 
-        sims = rng.normal(mean, sd, n_sims)
-        sims = np.clip(sims, 0, None)
+        sims = np.clip(rng.normal(mean, sd, n_sims), 0, None)
         flr = round(float(np.percentile(sims, 15)), 2)
         ceil = round(float(np.percentile(sims, 90)), 2)
-        target_boom = ( float(row["Salary"]) / 1000.0 ) * 5.0
+        target_boom = (float(row["Salary"]) / 1000.0) * 5.0
         boom_pct = round(float(np.mean(sims >= target_boom) * 100.0), 1)
         own = max(float(row.get("Ownership%", 15.0)), 1.0)
         lev = round(boom_pct - own, 1)
@@ -263,12 +249,11 @@ def run_monte_carlo_simulation(df: pd.DataFrame, n_sims: int = 10000, weather_im
     df["Ceiling (90%)"] = ceilings
     df["Boom%"] = boom_rates
     df["Leverage"] = leverage_scores
-    df["Value (Pt/$1K)"] = np.round(df["Adj_Proj"] / (df["Salary"] / 1000.0), 2)
+    df["Value (Pt/$1K)"] = np.round(df["Adj_Proj"] / np.maximum(df["Salary"] / 1000.0, 0.1), 2)
     return df
 
 def optimize_lineups_quant(
     df: pd.DataFrame,
-    league: str,
     num_lineups: int,
     salary_cap: int,
     lineup_size: int,
@@ -282,7 +267,6 @@ def optimize_lineups_quant(
     if len(active_df) < lineup_size:
         return []
 
-    # Score formula based on Contest Strategy
     if contest_mode == "GPP Millionaire (Ceiling + Anti-Chalk Leverage)":
         active_df["Opt_Score"] = (active_df["Ceiling (90%)"] * 0.75) + (active_df["Leverage"] * 0.35)
     elif contest_mode == "Cash Game Safe (High Floor)":
@@ -298,15 +282,12 @@ def optimize_lineups_quant(
         prob = pulp.LpProblem(f"ProStack_Quant_{l_idx}", pulp.LpMaximize)
         x = pulp.LpVariable.dicts("p", active_df.index, cat="Binary")
 
-        # Add tiny noise across multi-lineups for natural portfolio diversification
         jitter = np.random.uniform(0.985, 1.015, size=len(active_df)) if l_idx > 0 else np.ones(len(active_df))
         prob += pulp.lpSum([active_df.loc[i, "Opt_Score"] * jitter[i] * x[i] for i in active_df.index])
 
-        # Salary & Roster Size
         prob += pulp.lpSum([active_df.loc[i, "Salary"] * x[i] for i in active_df.index]) <= salary_cap
         prob += pulp.lpSum([x[i] for i in active_df.index]) == lineup_size
 
-        # Positional Diversity (at least 1 per available position up to lineup size)
         unique_pos = active_df["Position"].unique().tolist()
         if len(unique_pos) <= lineup_size:
             for pos in unique_pos:
@@ -314,16 +295,13 @@ def optimize_lineups_quant(
                 if len(pos_indices) > 0:
                     prob += pulp.lpSum([x[i] for i in pos_indices]) >= 1
 
-        # Lock Players (Late-Swap / Core Locks)
         for i in active_df[active_df["Lock"] == True].index:
             prob += x[i] == 1
 
-        # Max Exposure Constraint
         for i in active_df.index:
             if not active_df.loc[i, "Lock"] and exposure_counts[i] >= max_allowed:
                 prob += x[i] == 0
 
-        # Primary Team Stack + Bring-Back Opposing Player Rule
         if stack_team != "None" and stack_count > 1:
             t_idx = active_df[active_df["Team"] == stack_team].index
             if len(t_idx) >= stack_count:
@@ -335,7 +313,6 @@ def optimize_lineups_quant(
                     if len(opp_idx) > 0:
                         prob += pulp.lpSum([x[i] for i in opp_idx]) >= 1
 
-        # Uniqueness from previous lineups
         for prev_indices in lineups:
             prob += pulp.lpSum([x[i] for i in prev_indices]) <= lineup_size - 1
 
@@ -348,10 +325,7 @@ def optimize_lineups_quant(
         else:
             break
 
-    results = []
-    for idx_list in lineups:
-        results.append(active_df.loc[idx_list].copy())
-    return results
+    return [active_df.loc[idx_list].copy() for idx_list in lineups]
 
 # ==========================================
 # 6. SIDEBAR: AUTH, VIP STATUS & TELEGRAM HUB
@@ -376,7 +350,7 @@ with st.sidebar:
                     st.session_state.user = u
                     st.rerun()
                 else:
-                    st.error("Invalid credentials. Or sign up for a 30-day trial!")
+                    st.error("Invalid credentials. Or activate your 30-day free trial!")
         with auth_tab2:
             r_email = st.text_input("Your Best Email", key="reg_email")
             r_pw = st.text_input("Create Password", type="password", key="reg_pw")
@@ -393,14 +367,13 @@ with st.sidebar:
                     st.warning("Enter a valid email & 4+ char password.")
     else:
         u = st.session_state.user
-        vip_status = check_vip_active(u)
         st.success(f"👤 **{u['email']}**")
         if u["is_admin"]:
             st.markdown("👑 **Role:** `FOUNDER / ADMIN`")
         elif u["is_vip"]:
             st.markdown("💎 **Membership:** `LIFETIME / PAID VIP`")
         else:
-            st.markdown(f"🎁 **VIP Trial Active Until:** `{u['trial_until'][:10]}`")
+            st.markdown(f"🎁 **VIP Trial Until:** `{u['trial_until'][:10]}`")
 
         if st.button("🚪 Log Out", use_container_width=True):
             st.session_state.user = None
@@ -419,7 +392,7 @@ tabs = st.tabs([
     "🎲 10,000x Monte Carlo & GPP Optimizer",
     "🎯 +EV Pick'em & Prop Devigger",
     "💰 Kelly Bankroll & ROI Vault",
-    "👑 Founder Admin & DB Backup"
+    "👑 Founder Admin & VIP Control"
 ])
 
 # ------------------------------------------
@@ -434,14 +407,12 @@ with tabs[0]:
         st.write("")
         if st.button(f"⚡ Load Today's {selected_league} Pro Slate (Instant No-CSV Test)", use_container_width=True, type="primary"):
             st.session_state[f"slate_{selected_league}"] = generate_pro_slate(selected_league)
-            st.toast(f"Loaded Official {selected_league} Pro Slate with Vegas Odds & Ownership!", icon="⚡")
+            st.toast(f"Loaded Official {selected_league} Pro Slate!", icon="⚡")
     with col_top3:
         weather_mod = st.slider("🌦️ Dome / Weather Boost (%)", -15.0, 15.0, 0.0, 1.0)
 
-    # Load DataFrame
     if uploaded_csv is not None:
         raw_df = pd.read_csv(uploaded_csv)
-        # Smart Column Mapper for DK / FD CSVs
         col_map = {}
         for c in raw_df.columns:
             cl = c.lower()
@@ -470,7 +441,7 @@ with tabs[0]:
     base_slate = st.session_state[f"slate_{selected_league}"]
 
     st.markdown("### 🛠️ Live Injury Boost (`OUT 🚑`), Late-Swap Locks (`🔒`) & Monte Carlo Table")
-    st.caption("Pro Tip: Change any player's **Status** to `OUT 🚑` to automatically boost their active teammates by **+15% usage**, or tick **Lock** (`🔒`) for Late-Swap!")
+    st.caption("Mark any star player `OUT 🚑` to automatically boost active teammates by **+15% usage**, or tick `🔒 Lock` for Late-Swap!")
 
     edited_slate = st.data_editor(
         base_slate,
@@ -514,7 +485,7 @@ with tabs[0]:
 
     if st.button("🚀 RUN 10,000x MONTE CARLO & GENERATE WINNING LINEUPS", use_container_width=True, type="primary"):
         built = optimize_lineups_quant(
-            sim_df, selected_league, num_lineups, salary_cap, lineup_size,
+            sim_df, num_lineups, salary_cap, lineup_size,
             contest_mode, max_exp, stack_team, stack_count, bring_back
         )
         if not built:
@@ -522,7 +493,6 @@ with tabs[0]:
         else:
             st.success(f"✅ Generated {len(built)} Quant-Optimized {selected_league} Lineups!")
 
-            # Direct DraftKings/FanDuel Multi-Entry Export CSV
             export_rows = []
             for idx, ldf in enumerate(built):
                 row_dict = {"Lineup_#": idx + 1, "Total_Salary": int(ldf["Salary"].sum()),
@@ -534,10 +504,9 @@ with tabs[0]:
                 export_rows.append(row_dict)
 
             export_df = pd.DataFrame(export_rows)
-            csv_bytes = export_df.to_csv(index=False).encode("utf-8")
             st.download_button(
                 "📥 Download Direct DraftKings / FanDuel MME Upload CSV",
-                data=csv_bytes,
+                data=export_df.to_csv(index=False).encode("utf-8"),
                 file_name=f"ProStackAI_{selected_league}_Lineups.csv",
                 mime="text/csv",
                 use_container_width=True
@@ -564,7 +533,6 @@ with tabs[0]:
                     hide_index=True
                 )
 
-                # Feature #9: Shareable VIP Viral Card Generator
                 with st.expander(f"📲 Shareable VIP Viral Card for Lineup #{idx+1} (Screenshot for X / Reddit)"):
                     top_names = " • ".join(ldf["Name"].head(4).tolist())
                     st.markdown(f"""
@@ -585,8 +553,6 @@ with tabs[0]:
 # ------------------------------------------
 with tabs[1]:
     st.subheader("🎯 Live Sportsbook Odds Devigger (+EV Pick'em Scanner for PrizePicks & Underdog)")
-    st.caption("Automatically strips out Pinnacle/DraftKings sportsbook vig to expose high-probability mathematical edges.")
-
     col_p1, col_p2, col_p3 = st.columns(3)
     with col_p1:
         prop_player = st.text_input("🏀 Player & Stat Prop", value="Josh Allen - Over 265.5 Pass+Rush Yds")
@@ -596,16 +562,12 @@ with tabs[1]:
         under_odds = st.number_input("📉 Sharp Book Under Odds (American)", value=115, step=5)
 
     def american_to_prob(odds: float) -> float:
-        if odds < 0:
-            return (-odds) / ((-odds) + 100.0)
-        return 100.0 / (odds + 100.0)
+        return (-odds) / ((-odds) + 100.0) if odds < 0 else 100.0 / (odds + 100.0)
 
     raw_over = american_to_prob(over_odds)
     raw_under = american_to_prob(under_odds)
-    vig_sum = raw_over + raw_under
-    true_win_prob = (raw_over / vig_sum) * 100.0
-    breakeven_prob = 54.25  # Standard 5-pick / 6-pick flex implied breakeven
-    ev_edge = round(true_win_prob - breakeven_prob, 2)
+    true_win_prob = (raw_over / (raw_over + raw_under)) * 100.0
+    ev_edge = round(true_win_prob - 54.25, 2)
 
     st.markdown(f"""
     <div class="quant-card">
@@ -616,7 +578,6 @@ with tabs[1]:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("#### 🔥 Today's Top Auto-Scanned +EV Pick'em Board")
     ev_board = pd.DataFrame([
         {"League": selected_league, "Player Prop": "Primary Star Over Main Line", "Pinnacle Odds": "-148 / +118", "True Win %": "58.1%", "+EV Edge": "+3.85%", "Action": "🔥 LOCK OVER"},
         {"League": selected_league, "Player Prop": "Co-Star Under Rebounds/Yards", "Pinnacle Odds": "-142 / +112", "True Win %": "57.2%", "+EV Edge": "+2.95%", "Action": "🔥 LOCK UNDER"},
@@ -631,15 +592,13 @@ with tabs[2]:
     col_k1, col_k2 = st.columns(2)
     with col_k1:
         st.markdown("### 💰 AI Kelly Criterion Bankroll Calculator")
-        st.caption("Never blow your bankroll. Calculates mathematically optimal daily wager sizing.")
         total_br = st.number_input("💵 Total DFS / Pick'em Bankroll ($)", value=2500.0, step=100.0)
         win_prob = st.slider("🎯 Estimated Slip Win Probability (%)", 50.0, 75.0, 58.0, 0.5) / 100.0
-        payout_mult = st.number_input("🏆 Contest / Slip Multiplier (e.g. 2.0x Cash, 3.0x Slip)", value=2.0, step=0.25)
+        payout_mult = st.number_input("🏆 Contest / Slip Multiplier", value=2.0, step=0.25)
         kelly_frac = st.selectbox("🛡️ Risk Profile", ["Quarter-Kelly (Ultra Safe Pro)", "Half-Kelly (Balanced Growth)", "Full Kelly (Aggressive)"])
 
         b = max(payout_mult - 1.0, 0.1)
-        q = 1.0 - win_prob
-        raw_kelly = max(0.0, ((b * win_prob) - q) / b)
+        raw_kelly = max(0.0, ((b * win_prob) - (1.0 - win_prob)) / b)
         mult_map = {"Quarter-Kelly (Ultra Safe Pro)": 0.25, "Half-Kelly (Balanced Growth)": 0.5, "Full Kelly (Aggressive)": 1.0}
         rec_pct = raw_kelly * mult_map[kelly_frac] * 100.0
         rec_wager = round(total_br * (rec_pct / 100.0), 2)
@@ -678,14 +637,14 @@ with tabs[2]:
             st.metric("🏆 Total Vault Net Profit", f"${tot_net:,.2f}", f"{roi_pct:+.1f}% ROI")
             st.line_chart(v_df["Cumulative_Profit"])
         else:
-            st.info("Log your first DFS contest or Pick'em slip above to track your cumulative ROI curve!")
+            st.info("Log your first contest above to see your live profit chart!")
 
 # ------------------------------------------
-# TAB 4: FOUNDER ADMIN & 1-CLICK DB BACKUP
+# TAB 4: FOUNDER ADMIN, VIP TOGGLE & BACKUP
 # ------------------------------------------
 with tabs[3]:
-    st.subheader("👑 Founder Command Center & Cloud Database Backup")
-    admin_key = st.text_input("🔐 Enter Founder Master Key (Default: ProStackAdmin2026!)", type="password")
+    st.subheader("👑 Founder Command Center, VIP Manager & Cloud DB Backup")
+    admin_key = st.text_input("🔐 Enter Founder Master Key", type="password")
     if admin_key == "ProStackAdmin2026!" or (st.session_state.user and st.session_state.user.get("is_admin")):
         conn = get_conn()
         users_df = pd.read_sql_query("SELECT email, created_at, trial_until, is_vip, is_admin FROM users", conn)
@@ -693,11 +652,31 @@ with tabs[3]:
         st.metric("👥 Total Registered Users", len(users_df))
         st.dataframe(users_df, use_container_width=True)
 
-        # 1-Click JSON Backup Download
-        backup_json = users_df.to_json(orient="records")
+        st.markdown("#### 💎 Manual VIP Grant / Revoke Control")
+        adm_c1, adm_c2, adm_c3 = st.columns(3)
+        with adm_c1:
+            target_email = st.selectbox("Select User Email", users_df["email"].tolist())
+        with adm_c2:
+            if st.button("✅ Grant Lifetime VIP", use_container_width=True, type="primary"):
+                conn = get_conn()
+                conn.execute("UPDATE users SET is_vip=1 WHERE email=?", (target_email,))
+                conn.commit()
+                conn.close()
+                st.success(f"Granted VIP to {target_email}!")
+                st.rerun()
+        with adm_c3:
+            if st.button("⏳ Reset / Revoke VIP", use_container_width=True):
+                conn = get_conn()
+                conn.execute("UPDATE users SET is_vip=0 WHERE email=?", (target_email,))
+                conn.commit()
+                conn.close()
+                st.warning(f"Revoked VIP for {target_email}.")
+                st.rerun()
+
+        st.divider()
         st.download_button(
             "📥 1-Click Download Full User Database Backup (JSON)",
-            data=backup_json,
+            data=users_df.to_json(orient="records"),
             file_name="prostack_users_backup.json",
             mime="application/json",
             use_container_width=True
