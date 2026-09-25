@@ -23,7 +23,8 @@ PAYMENT_LINKS = {
 }
 
 SUPPORT_WHATSAPP_URL = "https://wa.me/19999999999?text=Hello%20ProStack%20AI%20VIP%20Support"
-SUPPORT_TELEGRAM_URL = "https://t.me/ProStackAI_Support"
+SUPPORT_TELEGRAM_URL = "https://t.me/ProStackAI_Official"
+
 SUPPORT_EMAIL = "support@prostack.ai"
 
 SMTP_SENDER_EMAIL = ""
