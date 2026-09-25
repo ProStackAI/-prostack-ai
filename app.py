@@ -56,6 +56,10 @@ def extend_subscription(email, days):
     return False
 
 def get_user_status(email):
+    # Admin ke liye hamesha active rakho
+    if email == "ADMIN":
+        return True, "VIP Admin"
+        
     conn = sqlite3.connect('prostack_users.db')
     c = conn.cursor()
     c.execute("SELECT expiry_date, status FROM users WHERE email = ?", (email,))
@@ -114,6 +118,7 @@ st.markdown("""
     .sub-text {color: #A0AEC0 !important; font-size: 14px; font-style: italic;}
     .strategy-box {background-color: #1A202C; padding: 15px; border-radius: 8px; border-left: 4px solid #FFD700; margin-bottom: 15px;}
     .recharge-box {background-color: #1A202C; padding: 20px; border-radius: 10px; border: 2px solid #FF3131; margin-bottom: 20px;}
+    .admin-box {background-color: #1A202C; padding: 20px; border-radius: 10px; border: 2px solid #FFD700; margin-bottom: 20px;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -163,92 +168,79 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==========================================
-# 👑 ADMIN PANEL (CEO CONTROL ROOM)
+# 👑 CEO ADMIN CONTROL ROOM (AGAR ADMIN HAI)
 # ==========================================
 if st.session_state.user_email == "ADMIN":
-    st.markdown("<h1 style='color: #FFD700;'>👑 CEO ADMIN CONTROL ROOM</h1>", unsafe_allow_html=True)
-    st.markdown("Yeh aapka master database hai jahan saare 4000+ users ke emails aur expiry dates saved hain:")
+    st.markdown("""
+    <div class='admin-box'>
+        <h2 style='color: #FFD700 !important;'>👑 CEO ADMIN CONTROL ROOM</h2>
+        <p style='color: white;'>Aap yahan saare registered users ka data manage kar sakte hain, aur niche aapka Auto-Pilot Engine bhi active hai!</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     conn = sqlite3.connect('prostack_users.db')
     users_df = pd.read_sql_query("SELECT * FROM users", conn)
     conn.close()
     
-    st.dataframe(users_df, use_container_width=True)
-    
-    col_a, col_b = st.columns(2)
-    with col_a:
-        target_email = st.selectbox("Select User to Manage", users_df['email'].tolist() if not users_df.empty else ["None"])
-    with col_b:
-        action = st.selectbox("Action", ["Active", "Blocked"])
-        
-    if st.button("⚡ Update User Status"):
-        if target_email != "None":
-            conn = sqlite3.connect('prostack_users.db')
-            c = conn.cursor()
-            c.execute("UPDATE users SET status = ? WHERE email = ?", (action, target_email))
-            conn.commit()
-            conn.close()
-            st.success(f"User {target_email} status updated to {action}!")
-            st.rerun()
+    if not users_df.empty:
+        st.dataframe(users_df, use_container_width=True)
+        col_a, col_b = st.columns(2)
+        with col_a:
+            target_email = st.selectbox("Select User to Manage", users_df['email'].tolist())
+        with col_b:
+            action = st.selectbox("Action", ["Active", "Blocked"])
             
-    if st.button("🚪 Logout Admin"):
-        st.session_state.logged_in = False
-        st.session_state.user_email = ""
-        st.rerun()
-    st.stop()
+        if st.button("⚡ Update User Status"):
+            if target_email:
+                conn = sqlite3.connect('prostack_users.db')
+                c = conn.cursor()
+                c.execute("UPDATE users SET status = ? WHERE email = ?", (action, target_email))
+                conn.commit()
+                conn.close()
+                st.success(f"User {target_email} status updated to {action}!")
+                st.rerun()
+    else:
+        st.info("ℹ️ No users registered yet in the database.")
+    st.divider()
 
 # ==========================================
-# 🟢 CHECK SUBSCRIPTION STATUS (NON-BLOCKING)
+# 🟢 CHECK SUBSCRIPTION STATUS
 # ==========================================
 is_active, exp_info = get_user_status(st.session_state.user_email)
 
 st.markdown(f'<p class="god-title">⚡ ProStack AI</p>', unsafe_allow_html=True)
-st.markdown(f'<p class="sub-text">Welcome, {st.session_state.user_email} | Status: {"🟢 Active (Valid till: " + exp_info + ")" if is_active else "🔴 Expired"}</p>', unsafe_allow_html=True)
+st.markdown(f'<p class="sub-text">Welcome, {st.session_state.user_email} | Status: {"🟢 Active" if is_active else "🔴 Expired"}</p>', unsafe_allow_html=True)
 st.divider()
 
-# YADI PLAN KHATAM HO GAYA HAI, TOH APP KHULEGA LEKIN RECHARGE WALL DIKHEGI
 if not is_active:
     st.markdown("""
     <div class='recharge-box'>
         <h2 style='color: #FF3131 !important;'>⚠️ SUBSCRIPTION EXPIRED</h2>
-        <p style='color: white;'>Your 1-month pass has ended. Please choose your recharge plan below to renew your access instantly and unlock the Auto-Pilot Engine.</p>
+        <p style='color: white;'>Your pass has ended. Please choose your recharge plan below to renew.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("### 💳 Select Your Recharge Plan")
     plan = st.radio("Choose Duration:", [
         "🥇 1 Month Plan ($29 / ₹2,400)", 
         "🥈 3 Months Plan - Popular ($79 / ₹6,500)", 
         "🥉 6 Months Plan - Best Value ($139 / ₹11,500)", 
         "👑 1 Year VIP Pass ($249 / ₹20,000)"
     ])
-    
     days_map = {
         "🥇 1 Month Plan ($29 / ₹2,400)": 30,
         "🥈 3 Months Plan - Popular ($79 / ₹6,500)": 90,
         "🥉 6 Months Plan - Best Value ($139 / ₹11,500)": 180,
         "👑 1 Year VIP Pass ($249 / ₹20,000)": 365
     }
-    
-    st.write("")
     if st.button("🚀 PROCEED TO SECURE PAYMENT & RENEW", type="primary", use_container_width=True):
-        selected_days = days_map[plan]
-        if extend_subscription(st.session_state.user_email, selected_days):
-            st.success("✅ Payment Successful! Subscription Renewed. Refreshing app...")
+        if extend_subscription(st.session_state.user_email, days_map[plan]):
+            st.success("✅ Renewed Successfully! Refreshing...")
             time.sleep(2)
             st.rerun()
-        else:
-            st.error("❌ Recharge failed. Please contact support.")
-            
-    st.sidebar.markdown("---")
-    if st.sidebar.button("🚪 Logout"):
-        st.session_state.logged_in = False
-        st.session_state.user_email = ""
-        st.rerun()
     st.stop()
 
 # ==========================================
-# 🚀 ACTIVE USER MAIN DFS ENGINE APP
+# 🚀 ACTIVE USER / ADMIN MAIN DFS ENGINE APP
 # ==========================================
 
 st.markdown("### 📥 Step 1: Upload Match Data")
@@ -384,7 +376,7 @@ elif app_mode == "📉 Pro Analytics":
     fig1 = px.scatter(df, x="Salary", y="Proj_Pts", color="Pos", hover_name="Player", template="plotly_dark", title="Value Matrix")
     st.plotly_chart(fig1, use_container_width=True)
 
-# LOGOUT BUTTON FOR USERS
+# LOGOUT BUTTON
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪 Logout"):
     st.session_state.logged_in = False
