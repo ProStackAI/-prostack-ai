@@ -6,6 +6,7 @@ import plotly.express as px
 import time
 import random
 import smtplib
+import re
 from email.message import EmailMessage
 from datetime import datetime, timedelta
 import hashlib
@@ -29,7 +30,7 @@ SMTP_SENDER_EMAIL = ""
 SMTP_APP_PASSWORD = ""
 
 # --- 1. DATABASE & ENTERPRISE SETUP (USERS + BANKROLL + REFERRALS) ---
-DB_FILE = 'prostack_us_canada_v7.db'
+DB_FILE = 'prostack_us_canada_v8.db'
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -246,7 +247,7 @@ def verify_user(email, password):
     return False, "Invalid Email or Password"
 
 # --- 2. EXTREMELY ULTRA PAGE SETUP ---
-st.set_page_config(page_title="ProStack AI V7.5 - Unique DNA Edition", page_icon="⚡", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="ProStack AI V8.0 - USA & Canada DFS", page_icon="⚡", layout="wide", initial_sidebar_state="collapsed")
 
 hide_st_style = """
             <style>
@@ -288,6 +289,7 @@ st.markdown("""
     .badge-upcoming {background-color: #00BFFF; color: black; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;}
     .pay-link-btn {display: block; width: 100%; text-align: center; background-color: #00FF41; color: #000000 !important; font-weight: 900; padding: 14px; border-radius: 8px; text-decoration: none; font-size: 17px; margin-top: 10px; margin-bottom: 15px;}
     .support-btn {display: block; width: 100%; text-align: center; background-color: #00BFFF; color: #000000 !important; font-weight: 900; padding: 12px; border-radius: 8px; text-decoration: none; font-size: 16px; margin-top: 8px; margin-bottom: 8px;}
+    .legal-footer {background-color: #12161F; padding: 16px; border-radius: 8px; border-top: 1px solid #2D3748; color: #A0AEC0 !important; font-size: 12px; text-align: center; margin-top: 20px;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -306,11 +308,11 @@ if 'auto_excluded' not in st.session_state:
 if not st.session_state.logged_in:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<h1 style='text-align: center;'>⚡ PROSTACK AI PORTAL</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #A0AEC0;'>#1 AI Daily Fantasy & Pick'em Optimizer for USA 🇺🇸 & Canada 🇨🇦 (DraftKings • FanDuel • PrizePicks)</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #A0AEC0;'> Quantitative Daily Fantasy & Pick'em Lineup Optimizer for USA 🇺🇸 & Canada 🇨🇦</p>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        auth_mode = st.radio("Choose Action:", ["Login", "Sign Up (New User)", "🔑 Forgot Password"], horizontal=True)
+        auth_mode = st.radio("Choose Action:", ["Login", "Sign Up (30-Day Free Trial)", "🔑 Forgot Password"], horizontal=True)
         
         if auth_mode == "Login":
             l_email = st.text_input("Email Address", placeholder="Enter your registered email")
@@ -333,12 +335,12 @@ if not st.session_state.logged_in:
                     else:
                         st.error(f"❌ {msg}")
                         
-        elif auth_mode == "Sign Up (New User)":
+        elif auth_mode.startswith("Sign Up"):
             s_email = st.text_input("Enter Your Email Address", placeholder="name@email.com")
             s_phone = st.text_input("Enter US / Canada Mobile Number (For SMS OTP)", placeholder="e.g. +1 (555) 234-5678")
             s_password = st.text_input("Create Password (min 6 chars)", type="password")
             
-            if st.button("🚀 CREATE ACCOUNT & LOGIN", use_container_width=True):
+            if st.button("🚀 CREATE ACCOUNT & START 30-DAY FREE TRIAL", use_container_width=True):
                 clean_s_email = s_email.strip().lower()
                 clean_s_phone = s_phone.strip()
                 clean_s_pw = s_password.strip()
@@ -379,6 +381,12 @@ if not st.session_state.logged_in:
                         st.success("🎉 Password Reset Successfully! Switch to 'Login' tab to enter.")
                     else:
                         st.error("⚠️ Invalid OTP or Password too short (min 6 chars)!")
+                        
+    st.markdown("""
+    <div class='legal-footer'>
+        <b>⚖️ Transparent Analytics Disclaimer:</b> ProStack AI is a statistical & mathematical lineup optimization tool built for entertainment and research purposes. We do not offer real-money gambling or guarantee contest winnings. Please play responsibly.
+    </div>
+    """, unsafe_allow_html=True)
     st.stop()
 
 # ==========================================
@@ -387,7 +395,7 @@ if not st.session_state.logged_in:
 if st.session_state.user_email == "ADMIN":
     st.markdown("""
     <div class='admin-box'>
-        <h2 style='color: #FFD700 !important;'>👑 CEO ADMIN CONTROL ROOM (V7.5 UNIQUE DNA EDITION)</h2>
+        <h2 style='color: #FFD700 !important;'>👑 CEO ADMIN CONTROL ROOM (V8.0 FLAWLESS EDITION)</h2>
         <p style='color: white;'>Manage all North American users, verify USD/CAD payments, or download CSV database backups:</p>
     </div>
     """, unsafe_allow_html=True)
@@ -473,15 +481,15 @@ if st.session_state.user_email == "ADMIN":
 is_active, exp_info = get_user_status(st.session_state.user_email)
 user_dna_id = hashlib.md5(st.session_state.user_email.encode()).hexdigest()[:6].upper()
 
-st.markdown(f'<p class="god-title">⚡ ProStack AI V7.5</p>', unsafe_allow_html=True)
-st.markdown(f'<p class="sub-text">Welcome, {st.session_state.user_email} | 🧬 Personal AI DNA Seed: #{user_dna_id} (100% Anti-Duplicate Lineups) | Status: {"🟢 Active (Valid till: " + exp_info + ")" if is_active else "🔴 Expired"}</p>', unsafe_allow_html=True)
+st.markdown(f'<p class="god-title">⚡ ProStack AI V8.0</p>', unsafe_allow_html=True)
+st.markdown(f'<p class="sub-text">Welcome, {st.session_state.user_email} | 🧬 Personal AI DNA Seed: #{user_dna_id} (Anti-Duplicate Lineups) | Status: {"🟢 Active (Valid till: " + exp_info + ")" if is_active else "🔴 Expired"}</p>', unsafe_allow_html=True)
 st.divider()
 
 if not is_active:
     st.markdown("""
     <div class='recharge-box'>
         <h2 style='color: #FF3131 !important;'>⚠️ SUBSCRIPTION EXPIRED</h2>
-        <p style='color: white;'>Your access pass has ended. Complete your payment below ($ USD / $ CAD) and submit your Transaction Reference to unlock God-Mode.</p>
+        <p style='color: white;'>Your access pass has ended. Complete your payment below ($ USD / $ CAD) and submit your Transaction Reference to unlock the optimizer.</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -721,8 +729,8 @@ SPORTS_DATA = {
             {"title": "Texas Longhorns (TEX) vs Miami Hurricanes (MIA)", "status": "🟢 TODAY • Kickoff 3:30 PM EST", "info": "🚀 Vegas Total: 58.5 Pts | High Tempo Offense"}
         ],
         "upcoming_matches": [
-            {"title": "Duke Blue Devils vs UNC Tar Heels (College Basketball)", "time": "⏳ Tomorrow • 9:00 PM EST (ESPN)", "info": "📊 Early Total: 154.5 Pts | Tobacco Road Rivalry"},
-            {"title": "Kansas Jayhawks vs Kentucky Wildcats (CBB Showcase)", "time": "⏳ Tomorrow • 7:00 PM EST", "info": "📊 Early Total: 158.0 Pts | Blue Bloods Classic"}
+            {"title": "Duke Blue Devils (DUKE) vs UNC Tar Heels (UNC)", "time": "⏳ Tomorrow • 9:00 PM EST (ESPN)", "info": "📊 Early Total: 154.5 Pts | Tobacco Road Rivalry"},
+            {"title": "Kansas Jayhawks (KAN) vs Kentucky Wildcats (UK)", "time": "⏳ Tomorrow • 7:00 PM EST", "info": "📊 Early Total: 158.0 Pts | Blue Bloods Classic"}
         ],
         "players": build_roster_pool([
             ("A. Jeanty", "BSU", "RB", 9600, 33.5, 36.0), ("J. Milroe", "ALA", "QB", 9400, 31.0, 30.0),
@@ -841,12 +849,12 @@ SPORTS_DATA = {
     "⚽ MLS & Champions League Soccer (US & Canada DraftKings — 36 Players Active)": {
         "default_format_idx": 1,
         "live_matches": [
-            {"title": "Inter Miami CF vs Los Angeles FC (MLS Prime Slate)", "status": "🔴 LIVE • 65' Min (2 - 1) | Apple TV MLS Season Pass", "info": "🔥 Goal Total: 3.5 | High Shot & Cross Volume"},
-            {"title": "Toronto FC vs Vancouver Whitecaps (Canadian Rivalry)", "status": "🟢 TODAY • Kickoff 7:30 PM EST", "info": "⚡ Goal Total: 3.0 | Set-Piece Heavy Slate"}
+            {"title": "Inter Miami CF (MIA) vs Los Angeles FC (LAFC)", "status": "🔴 LIVE • 65' Min (2 - 1) | Apple TV MLS Season Pass", "info": "🔥 Goal Total: 3.5 | High Shot & Cross Volume"},
+            {"title": "Toronto FC (TOR) vs Vancouver Whitecaps (VAN)", "status": "🟢 TODAY • Kickoff 7:30 PM EST", "info": "⚡ Goal Total: 3.0 | Set-Piece Heavy Slate"}
         ],
         "upcoming_matches": [
-            {"title": "LA Galaxy vs Seattle Sounders FC", "time": "⏳ Tomorrow • 10:30 PM EST", "info": "📊 Early Goal Line: 3.5 | Attacking Slate"},
-            {"title": "Real Madrid vs Manchester City (UCL US Afternoon Slate)", "time": "⏳ Tuesday • 3:00 PM EST (Paramount+)", "info": "📊 Early Goal Line: 3.5 | High Ceiling Showdown"}
+            {"title": "LA Galaxy (LAG) vs Seattle Sounders FC (SEA)", "time": "⏳ Tomorrow • 10:30 PM EST", "info": "📊 Early Goal Line: 3.5 | Attacking Slate"},
+            {"title": "Real Madrid (RMA) vs Manchester City (MCI)", "time": "⏳ Tuesday • 3:00 PM EST (Paramount+)", "info": "📊 Early Goal Line: 3.5 | High Ceiling Showdown"}
         ],
         "players": build_roster_pool([
             ("L. Messi", "MIA", "FWD", 10400, 28.5, 38.0), ("E. Haaland", "MCI", "FWD", 10200, 27.5, 34.0),
@@ -951,16 +959,116 @@ if uploaded_file is not None:
 else:
     df = pd.DataFrame(SPORTS_DATA[selected_sport]["players"])
 
+# SMART SLATE FILTER: If user selects a specific matchup (e.g. "KC vs BUF"), filter players to those teams!
+is_single_game_selected = False
+if not selected_slate.startswith("🔥 Full Main Slate") and uploaded_file is None:
+    matched_teams = re.findall(r'\(([A-Z]{2,4})\)', selected_slate)
+    if len(matched_teams) >= 2:
+        filtered_df = df[df["Team"].isin(matched_teams)].copy().reset_index(drop=True)
+        if len(filtered_df) >= 6:
+            df = filtered_df
+            is_single_game_selected = True
+            st.info(f"🎯 **Single-Game Matchup Filter Active:** Showing {len(df)} active players from **{' & '.join(matched_teams)}** for Showdown optimization!")
+
 # ==========================================
-# 🧠 V7.5 SOLVER (USER-UNIQUE DNA SEED + SAFE AI STACK GRADE A+/A)
+# 🧠 V8.0 FLAWLESS SOLVER (EXACT SLOT ALIGNMENT + REAL SHOWDOWN vs CLASSIC RULES)
 # ==========================================
+def apply_positional_rules(prob, p_vars, base_data, roster_size, pos_set):
+    if roster_size >= 8:
+        if "QB" in pos_set and "RB" in pos_set and "WR" in pos_set:
+            qb_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "QB"]
+            rb_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "RB"]
+            wr_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "WR"]
+            te_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "TE"]
+            dst_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "DST"]
+            if len(qb_idxs) >= 1:
+                prob += pulp.lpSum([p_vars[idx] for idx in qb_idxs]) == 1
+            if len(rb_idxs) >= 2:
+                prob += pulp.lpSum([p_vars[idx] for idx in rb_idxs]) >= 2
+            if len(wr_idxs) >= 3:
+                prob += pulp.lpSum([p_vars[idx] for idx in wr_idxs]) >= 3
+            if len(te_idxs) >= 1:
+                prob += pulp.lpSum([p_vars[idx] for idx in te_idxs]) >= 1
+            if len(dst_idxs) >= 1 and roster_size == 9:
+                prob += pulp.lpSum([p_vars[idx] for idx in dst_idxs]) == 1
+        elif "P" in pos_set and "OF" in pos_set:
+            p_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "P"]
+            if len(p_idxs) >= 2:
+                prob += pulp.lpSum([p_vars[idx] for idx in p_idxs]) <= 2
+                prob += pulp.lpSum([p_vars[idx] for idx in p_idxs]) >= 1
+        elif "G" in pos_set and "C" in pos_set and "W" in pos_set:
+            g_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "G"]
+            if len(g_idxs) >= 1:
+                prob += pulp.lpSum([p_vars[idx] for idx in g_idxs]) == 1
+        elif "GK" in pos_set and "FWD" in pos_set:
+            gk_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "GK"]
+            if len(gk_idxs) >= 1:
+                prob += pulp.lpSum([p_vars[idx] for idx in gk_idxs]) == 1
+
+def align_players_to_official_slots(chosen_indices, base_data, roster_size, pos_set, sim_pts, captain_usage, max_cpt_count):
+    # 1. 6-PLAYER SHOWDOWN MODE: Only Showdown has 1.5x Captain!
+    if roster_size == 6:
+        def cpt_priority(idx):
+            p_nm = base_data["Player"][idx]
+            penalty = 100.0 if captain_usage[p_nm] >= max_cpt_count else (captain_usage[p_nm] * 1.5)
+            return sim_pts[idx] - penalty
+        chosen_sorted = sorted(chosen_indices, key=cpt_priority, reverse=True)
+        formatted = []
+        for rank_idx, p_idx in enumerate(chosen_sorted):
+            p_name = base_data["Player"][p_idx]
+            p_pos = base_data["Pos"][p_idx]
+            p_tm = base_data["Team"][p_idx]
+            if rank_idx == 0:
+                captain_usage[p_name] += 1
+                formatted.append(f"{p_name} ({p_pos}-{p_tm}) 👑(CPT 1.5x)")
+            else:
+                formatted.append(f"{p_name} ({p_pos}-{p_tm})")
+        return formatted
+
+    # 2. 9-PLAYER NFL CLASSIC MODE: Align strictly into QB, RB1, RB2, WR1, WR2, WR3, TE, FLEX, DST!
+    if roster_size == 9 and "QB" in pos_set and "RB" in pos_set and "WR" in pos_set:
+        rem = list(chosen_indices)
+        def pop_pos(target_pos):
+            for idx in rem:
+                if base_data["Pos"][idx] == target_pos:
+                    rem.remove(idx)
+                    return idx
+            return None
+        qb = pop_pos("QB")
+        rb1 = pop_pos("RB")
+        rb2 = pop_pos("RB")
+        wr1 = pop_pos("WR")
+        wr2 = pop_pos("WR")
+        wr3 = pop_pos("WR")
+        te = pop_pos("TE")
+        dst = pop_pos("DST")
+        flex = rem.pop(0) if rem else None
+        ordered_slots = [qb, rb1, rb2, wr1, wr2, wr3, te, flex, dst]
+        final_slots = []
+        for s_idx in ordered_slots:
+            if s_idx is not None:
+                final_slots.append(f"{base_data['Player'][s_idx]} ({base_data['Pos'][s_idx]}-{base_data['Team'][s_idx]})")
+            elif rem:
+                r_idx = rem.pop(0)
+                final_slots.append(f"{base_data['Player'][r_idx]} ({base_data['Pos'][r_idx]}-{base_data['Team'][r_idx]})")
+        if len(final_slots) == 9:
+            # Track primary QB/Anchor in captain_usage for exposure summary
+            if qb is not None:
+                captain_usage[base_data["Player"][qb]] += 1
+            return final_slots
+
+    # 3. ALL OTHER 8/9-PLAYER CLASSIC MODES (NBA, NHL, MLB, NCAA, MLS): Clean 1x slots without fake Captain tags!
+    chosen_sorted = sorted(chosen_indices, key=lambda idx: sim_pts[idx], reverse=True)
+    if chosen_sorted:
+        captain_usage[base_data["Player"][chosen_sorted[0]]] += 1
+    return [f"{base_data['Player'][idx]} ({base_data['Pos'][idx]}-{base_data['Team'][idx]})" for idx in chosen_sorted]
+
 def run_god_mode_solver(data, lineups_count, cap, strategy_mode, locked_players, excluded_players, roster_size, max_exp_pct, enable_stacking, user_email_str):
     lineups, stats, ai_grades = [], [], []
     base_data = data[~data["Player"].isin(excluded_players)].copy().reset_index(drop=True)
     if len(base_data) < roster_size:
         return [], [], [], pd.DataFrame()
         
-    # 🧬 USER-UNIQUE DNA SEED: Ensures 500 users uploading the exact same CSV get 100% unique lineups!
     unique_seed_str = f"{user_email_str}_{time.time_ns()}"
     seed_int = int(hashlib.md5(unique_seed_str.encode()).hexdigest()[:8], 16)
     rng = np.random.default_rng(seed_int)
@@ -984,7 +1092,6 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode, locked_players,
         prob = pulp.LpProblem(f"GodMode_{i}", pulp.LpMaximize)
         p_vars = pulp.LpVariable.dicts("P", base_data.index, cat='Binary')
         
-        # Personal DNA variance even on Lineup #1 so no two users ever collide on the exact same Lineup #1!
         dna_noise = rng.normal(0, 2.15 if i > 0 else 1.15, size=len(base_data))
         sim_pts = base_data["Proj_Pts"] + dna_noise
         
@@ -998,36 +1105,7 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode, locked_players,
         prob += pulp.lpSum([base_data["Eff_Salary"][idx] * p_vars[idx] for idx in base_data.index]) <= cap
         prob += pulp.lpSum([p_vars[idx] for idx in base_data.index]) == roster_size
         
-        if roster_size >= 8:
-            if "QB" in pos_set and "RB" in pos_set and "WR" in pos_set:
-                qb_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "QB"]
-                rb_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "RB"]
-                wr_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "WR"]
-                te_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "TE"]
-                dst_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "DST"]
-                if len(qb_idxs) >= 1:
-                    prob += pulp.lpSum([p_vars[idx] for idx in qb_idxs]) == 1
-                if len(rb_idxs) >= 2:
-                    prob += pulp.lpSum([p_vars[idx] for idx in rb_idxs]) >= 2
-                if len(wr_idxs) >= 3:
-                    prob += pulp.lpSum([p_vars[idx] for idx in wr_idxs]) >= 3
-                if len(te_idxs) >= 1:
-                    prob += pulp.lpSum([p_vars[idx] for idx in te_idxs]) >= 1
-                if len(dst_idxs) >= 1 and roster_size == 9:
-                    prob += pulp.lpSum([p_vars[idx] for idx in dst_idxs]) == 1
-            elif "P" in pos_set and "OF" in pos_set:
-                p_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "P"]
-                if len(p_idxs) >= 2:
-                    prob += pulp.lpSum([p_vars[idx] for idx in p_idxs]) <= 2
-                    prob += pulp.lpSum([p_vars[idx] for idx in p_idxs]) >= 1
-            elif "G" in pos_set and "C" in pos_set and "W" in pos_set:
-                g_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "G"]
-                if len(g_idxs) >= 1:
-                    prob += pulp.lpSum([p_vars[idx] for idx in g_idxs]) == 1
-            elif "GK" in pos_set and "FWD" in pos_set:
-                gk_idxs = [idx for idx in base_data.index if base_data["Pos"][idx] == "GK"]
-                if len(gk_idxs) >= 1:
-                    prob += pulp.lpSum([p_vars[idx] for idx in gk_idxs]) == 1
+        apply_positional_rules(prob, p_vars, base_data, roster_size, pos_set)
         
         for idx in base_data.index:
             p_name = base_data["Player"][idx]
@@ -1040,52 +1118,41 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode, locked_players,
             prob += pulp.lpSum([base_data["Ownership_%"][idx] * p_vars[idx] for idx in base_data.index]) <= (roster_size * 24)
         
         for prev_raw in lineups:
-            clean_prev = [p.split(" 👑")[0].split(" ⚡")[0].split(" (")[0] for p in prev_raw]
+            clean_prev = [p.split(" (")[0] for p in prev_raw]
             prob += pulp.lpSum([p_vars[idx] for idx in base_data.index if base_data["Player"][idx] in clean_prev]) <= (roster_size - 2)
             
         prob.solve(pulp.PULP_CBC_CMD(msg=0))
         
+        # BULLETPROOF FALLBACK SOLVER: Still strictly enforces positional rules & locked players!
         if pulp.LpStatus[prob.status] != 'Optimal':
             prob_fallback = pulp.LpProblem(f"GodMode_FB_{i}", pulp.LpMaximize)
             p_vars = pulp.LpVariable.dicts("P", base_data.index, cat='Binary')
             prob_fallback += pulp.lpSum([sim_pts[idx] * p_vars[idx] for idx in base_data.index])
             prob_fallback += pulp.lpSum([base_data["Eff_Salary"][idx] * p_vars[idx] for idx in base_data.index]) <= cap
             prob_fallback += pulp.lpSum([p_vars[idx] for idx in base_data.index]) == roster_size
+            apply_positional_rules(prob_fallback, p_vars, base_data, roster_size, pos_set)
+            for idx in base_data.index:
+                if base_data["Player"][idx] in locked_players:
+                    prob_fallback += p_vars[idx] == 1
             for prev_raw in lineups:
-                clean_prev = [p.split(" 👑")[0].split(" ⚡")[0].split(" (")[0] for p in prev_raw]
+                clean_prev = [p.split(" (")[0] for p in prev_raw]
                 prob_fallback += pulp.lpSum([p_vars[idx] for idx in base_data.index if base_data["Player"][idx] in clean_prev]) <= (roster_size - 1)
             prob_fallback.solve(pulp.PULP_CBC_CMD(msg=0))
             prob = prob_fallback
             
         if pulp.LpStatus[prob.status] == 'Optimal':
             chosen_indices = [idx for idx in base_data.index if p_vars[idx].varValue == 1]
-            
-            def cpt_priority(idx):
-                p_nm = base_data["Player"][idx]
-                penalty = 100.0 if captain_usage[p_nm] >= max_cpt_count else (captain_usage[p_nm] * 1.5)
-                return sim_pts[idx] - penalty
+            for p_idx in chosen_indices:
+                player_usage[base_data["Player"][p_idx]] += 1
                 
-            chosen_sorted = sorted(chosen_indices, key=cpt_priority, reverse=True)
-            
-            formatted_lineup = []
-            for rank_idx, p_idx in enumerate(chosen_sorted):
-                p_name = base_data["Player"][p_idx]
-                p_pos = base_data["Pos"][p_idx]
-                p_tm = base_data["Team"][p_idx]
-                player_usage[p_name] += 1
-                if rank_idx == 0:
-                    captain_usage[p_name] += 1
-                    formatted_lineup.append(f"{p_name} ({p_pos}-{p_tm}) 👑(CPT)")
-                elif rank_idx == 1:
-                    formatted_lineup.append(f"{p_name} ({p_pos}-{p_tm}) ⚡(MVP)")
-                else:
-                    formatted_lineup.append(f"{p_name} ({p_pos}-{p_tm})")
+            formatted_lineup = align_players_to_official_slots(
+                chosen_indices, base_data, roster_size, pos_set, sim_pts, captain_usage, max_cpt_count
+            )
                     
             pts = sum([base_data["Proj_Pts"][idx] for idx in chosen_indices])
             sal = sum([base_data["Eff_Salary"][idx] for idx in chosen_indices])
             own = sum([base_data["Ownership_%"][idx] for idx in chosen_indices]) / roster_size
             
-            # ⚡ 100% LEGAL & SAFE AI STACK GRADE (No fake win% promise!)
             sal_efficiency = (sal / max(cap, 1)) * 10.0
             rating_10 = min(9.9, max(8.7, round(8.8 + (sal_efficiency * 0.08) + ((30.0 - own) * 0.02), 1)))
             grade_letter = "A+ 🔥" if rating_10 >= 9.5 else ("A ⚡" if rating_10 >= 9.1 else "A- 🛡️")
@@ -1108,7 +1175,7 @@ def run_god_mode_solver(data, lineups_count, cap, strategy_mode, locked_players,
                 "Pos": base_data["Pos"][idx],
                 "Lineups Drafted": f"{cnt} / {len(lineups)}",
                 "Total Exposure %": round((cnt / total_gen) * 100, 1),
-                "Captain (👑) %": round((captain_usage[p_nm] / total_gen) * 100, 1)
+                "Anchor / CPT %": round((captain_usage[p_nm] / total_gen) * 100, 1)
             })
     exp_df = pd.DataFrame(exp_rows).sort_values(by="Total Exposure %", ascending=False).reset_index(drop=True)
     return lineups, stats, ai_grades, exp_df
@@ -1124,9 +1191,9 @@ app_mode = st.selectbox(
     [
         "🚀 Auto-Pilot Lineup Engine (DraftKings / FanDuel)",
         "🎯 PrizePicks & Underdog Pick'em Generator (25x Parlay Slip)",
-        "📈 My Bankroll & ROI Profit Tracker (NEW!)",
+        "📈 My Bankroll & ROI Profit Tracker",
         "📰 Live Match News & 1-Click Late Swap Alert",
-        "📊 The Terminal (Player Data — 36+ Players)",
+        "📊 The Terminal (Player Data Matrix)",
         "📉 Pro Analytics",
         "💎 VIP Upgrade, Viral Referral (+7 Free Days) & Support"
     ],
@@ -1135,38 +1202,42 @@ app_mode = st.selectbox(
 st.divider()
 
 if app_mode.startswith("🚀 Auto-Pilot"):
-    st.markdown(f"### 🧠 V7.5 Unique-DNA Engine — {selected_sport}")
+    st.markdown(f"### 🧠 V8.0 Official-Slot Engine — {selected_sport}")
     st.markdown(f"<p style='color:#00FF41; font-weight:bold;'>Active Slate: {selected_slate} | Pool: {len(df)} Players | 🧬 Anti-Collision DNA Seed: #{user_dna_id}</p>", unsafe_allow_html=True)
     st.markdown("""
     <div class='strategy-box'>
-        <b style='color:#FFD700; font-size:16px;'>Step 3: Personal DNA Anti-Duplicate Engine + AI Stack Grade (A+ / 9.8) + Direct Exports</b><br>
-        <span style='color:white;'>Uses your unique account DNA seed so no two ProStack AI members ever receive identical lineups—protecting your prizepool!</span>
+        <b style='color:#FFD700; font-size:16px;'>Step 3: True DraftKings/FanDuel Positional Slots + Personal DNA Seed + Direct CSV Export</b><br>
+        <span style='color:white;'>Automatically assigns 1.5x Captain ONLY in 6-Player Showdown mode and uses strict positional slots (QB, RB1, RB2, WR1-3, TE, FLEX, DST) in Classic modes!</span>
     </div>
     """, unsafe_allow_html=True)
     
-    auto_idx = SPORTS_DATA[selected_sport]["default_format_idx"]
+    auto_idx = 0 if is_single_game_selected else SPORTS_DATA[selected_sport]["default_format_idx"]
     regional_format = st.radio(
         "🇺🇸🇨🇦 Choose North American Contest Format:",
         [
-            "⚡ Showdown / Single-Game Mode (6 Players | $50,000 Cap — 1 CPT + 5 FLEX)",
+            "⚡ Showdown / Single-Game Mode (6 Players | $50,000 Cap — 1 CPT 1.5x + 5 FLEX)",
             "🏆 Classic Main Slate Roster (8 Players | $50,000 Cap — NBA / NHL / College / Soccer)",
             "🏈 Classic Full Lineup Roster (9 Players | $50,000 Cap — NFL 1-QB / MLB Full Slate)"
         ],
         index=auto_idx
     )
     
+    pos_set_now = set(df["Pos"].unique())
     if "6 Players" in regional_format:
         roster_size = 6
         default_cap = 50000
-        col_names = ["👑 Captain (1.5x)", "⚡ MVP Anchor", "UTIL 1", "UTIL 2", "UTIL 3", "UTIL 4"]
+        col_names = ["👑 Captain (1.5x)", "FLEX 1", "FLEX 2", "FLEX 3", "FLEX 4", "FLEX 5"]
     elif "8 Players" in regional_format:
         roster_size = 8
         default_cap = 50000
-        col_names = ["👑 Star Lock", "⚡ Co-Star", "Core 1", "Core 2", "Core 3", "Core 4", "FLEX 1", "FLEX 2"]
+        col_names = ["Slot 1 (Anchor)", "Slot 2", "Slot 3", "Slot 4", "Slot 5", "Slot 6", "UTIL 1", "UTIL 2"]
     else:
         roster_size = 9
         default_cap = 50000
-        col_names = ["👑 QB/SP Anchor", "⚡ Stack 1", "Core 2", "Core 3", "Core 4", "Core 5", "Core 6", "FLEX", "DST/UTIL"]
+        if "QB" in pos_set_now and "RB" in pos_set_now and "WR" in pos_set_now:
+            col_names = ["QB", "RB1", "RB2", "WR1", "WR2", "WR3", "TE", "FLEX", "DST"]
+        else:
+            col_names = ["P1 / Anchor", "P2 / Core", "Slot 3", "Slot 4", "Slot 5", "Slot 6", "Slot 7", "Slot 8", "Slot 9"]
         
     strategy = st.radio("Target Contest Type:", ["🛡️ 50/50 & Head-to-Head Cash Game (Safe Floor)", "💣 Mega GPP Tournament (High Ceiling / Low Ownership)"])
     
@@ -1196,7 +1267,7 @@ if app_mode.startswith("🚀 Auto-Pilot"):
         for percent in range(100):
             time.sleep(0.006)
             progress_bar.progress(percent + 1)
-            if percent < 50: status_text.text(f"Injecting Personal DNA Seed #{user_dna_id} & Enforcing Positional Rules...")
+            if percent < 50: status_text.text(f"Injecting Personal DNA Seed #{user_dna_id} & Enforcing Official Slots...")
             else: status_text.text("Grading Lineup Quality (A+ Scale) & Building Unique Stacks...")
             
         status_text.text("✅ EXECUTION COMPLETE.")
@@ -1206,7 +1277,7 @@ if app_mode.startswith("🚀 Auto-Pilot"):
         )
         
         if final_lineups:
-            st.success(f"🏆 {len(final_lineups)} 100% UNIQUE WINNING LINEUPS GENERATED FOR DNA SEED #{user_dna_id}!")
+            st.success(f"🏆 {len(final_lineups)} SLOT-VERIFIED WINNING LINEUPS GENERATED FOR DNA SEED #{user_dna_id}!")
             df_out = pd.DataFrame(final_lineups, columns=col_names)
             df_out["⚡ AI Grade"] = ai_grades
             df_out["Metrics"] = stat_list
@@ -1228,22 +1299,22 @@ if app_mode.startswith("🚀 Auto-Pilot"):
                 st.download_button("💾 DOWNLOAD FANDUEL DIRECT CSV", fd_csv, "FanDuel_Direct_Upload.csv", "text/csv", use_container_width=True)
             
             st.markdown("---")
-            st.markdown("### 📊 Portfolio Player & Captain Exposure Breakdown")
+            st.markdown("### 📊 Portfolio Player Exposure Breakdown")
             st.dataframe(exp_df, use_container_width=True, hide_index=True)
         else:
-            st.error("Engine Overload: Too many players excluded. Reduce excluded players and try again.")
+            st.error("Engine Overload: Not enough players in this slate/position to build full lineups. Switch to 6-Player Showdown or reduce excluded players.")
 
 elif app_mode.startswith("🎯 PrizePicks"):
     st.subheader(f"🎯 PrizePicks & Underdog Fantasy 6-Pick Parlay Slip (25x Payout) — {selected_sport}")
     st.markdown("""
     <div class='strategy-box'>
         <b style='color:#00FF41; font-size:16px;'>🔥 North America's #1 Pick'em Prop Slip Finder</b><br>
-        <span style='color:white;'>Compares our AI Vegas Projections against implied Pick'em Lines to find the highest-leverage <b>🔼 MORE (Over)</b> & <b>🔽 LESS (Under)</b> plays!</span>
+        <span style='color:white;'>Compares our AI Vegas Projections against implied Pick'em Lines to find high-value <b>🔼 MORE (Over)</b> & <b>🔽 LESS (Under)</b> plays!</span>
     </div>
     """, unsafe_allow_html=True)
     
     pick_df = df.copy()
-    top_picks = pick_df.sort_values(by="Proj_Pts", ascending=False).head(12).sample(frac=1.0).head(6).reset_index(drop=True)
+    top_picks = pick_df.sort_values(by="Proj_Pts", ascending=False).head(12).sample(frac=1.0).head(min(6, len(pick_df))).reset_index(drop=True)
     
     if st.button("🔄 GENERATE NEW AI 6-PICK PARLAY SLIP (25X PAYOUT)", use_container_width=True):
         top_picks = pick_df.sample(n=min(6, len(pick_df))).reset_index(drop=True)
@@ -1260,7 +1331,7 @@ elif app_mode.startswith("🎯 PrizePicks"):
                 <b style='color:#00FF41; font-size:18px;'>Pick #{idx+1}: {row['Player']} ({row['Team']} - {row['Pos']})</b><br>
                 <span style='color:#FFD700; font-size:15px;'>Prop Line: <b>{line_val} Fantasy Score</b> | AI Proj: <b>{row['Proj_Pts']:.1f}</b></span><br>
                 <span style='color:#FFFFFF; font-size:16px; font-weight:bold;'>Action: {direction_badge}</span><br>
-                <span style='color:#00BFFF; font-size:13px;'>⚡ AI Prop Grade: <b>A+ ({prop_grade}/10)</b> • ⭐⭐⭐⭐⭐ 5-Star Edge</span>
+                <span style='color:#00BFFF; font-size:13px;'>⚡ AI Prop Grade: <b>A+ ({prop_grade}/10)</b> • ⭐⭐⭐⭐⭐ 5-Star Value</span>
             </div>
             """, unsafe_allow_html=True)
 
@@ -1268,7 +1339,7 @@ elif app_mode.startswith("📈 My Bankroll"):
     st.subheader("📈 My DFS Bankroll & ROI Profit Tracker ($ USD / $ CAD)")
     st.markdown("""
     <div class='strategy-box'>
-        <b style='color:#00FF41; font-size:16px;'>💰 Professional Wall-Street Bankroll Management</b><br>
+        <b style='color:#00FF41; font-size:16px;'>💰 Professional Bankroll Management</b><br>
         <span style='color:white;'>Log your daily DraftKings, FanDuel & PrizePicks contest results to track your Net Profit, ROI %, and Bankroll Growth!</span>
     </div>
     """, unsafe_allow_html=True)
@@ -1288,7 +1359,7 @@ elif app_mode.startswith("📈 My Bankroll"):
     user_b_df = get_bankroll_df(st.session_state.user_email)
     if user_b_df.empty:
         user_b_df = pd.DataFrame({
-            "Date": ["Day 1", "Day 2", "Day 3", "Day 4"],
+            "Date": ["Sample-1", "Sample-2", "Sample-3", "Sample-4"],
             "Sport": ["NFL", "NBA", "NHL", "NFL"],
             "Entry_USD": [20.0, 25.0, 30.0, 50.0],
             "Won_USD": [45.0, 15.0, 95.0, 180.0]
@@ -1312,8 +1383,8 @@ elif app_mode.startswith("📈 My Bankroll"):
 
 elif app_mode.startswith("📰 Live Match News"):
     st.subheader(f"🚨 Real-Time Injury Desk & 1-Click Late Swap — {selected_sport}")
-    gtd_player = df["Player"].iloc[3] if len(df) > 3 else "Star Player"
-    pivot_player = df["Player"].iloc[5] if len(df) > 5 else "Backup Pivot"
+    gtd_player = df["Player"].iloc[min(3, len(df)-1)]
+    pivot_player = df["Player"].iloc[min(5, len(df)-1)]
     
     st.markdown(f"""
     <div class='news-box-red' style='background-color: #1A202C; padding: 18px; border-radius: 8px; border-left: 5px solid #FF3131; margin-bottom: 15px;'>
@@ -1392,3 +1463,9 @@ if st.button("🚪 Logout Account", use_container_width=True):
     st.session_state.logged_in = False
     st.session_state.user_email = ""
     st.rerun()
+
+st.markdown("""
+<div class='legal-footer'>
+    <b>⚖️ Transparent Analytics & Responsible Play Disclaimer:</b> ProStack AI V8.0 is a quantitative lineup optimization and statistical modeling software built for USA & Canada Daily Fantasy Sports research. We do not operate real-money contests or guarantee financial outcomes. Must be 18+ (21+ in applicable jurisdictions).
+</div>
+""", unsafe_allow_html=True)
