@@ -7,7 +7,6 @@ import hashlib
 import hmac
 import base64
 import json
-import uuid
 from datetime import datetime, timedelta
 
 # ==========================================
@@ -162,7 +161,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. DATABASE & SECURE PERSISTENT SESSION VAULT
+# 3. DATABASE & FACEBOOK-STYLE DEVICE VAULT
 # ==========================================
 DB_FILE = "prostack_enterprise.db"
 
@@ -187,6 +186,14 @@ def init_db():
         c.execute("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''")
     except Exception:
         pass
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS device_sessions (
+            device_id TEXT PRIMARY KEY,
+            user_json TEXT,
+            updated_at TEXT
+        )
+    """)
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS roi_vault (
@@ -218,6 +225,18 @@ def hash_pw(pw: str) -> str:
 def clean_phone(ph: str) -> str:
     return "".join(ch for ch in str(ph).strip() if ch.isdigit() or ch == "+")
 
+def get_device_fingerprint() -> str:
+    try:
+        headers = st.context.headers
+        ua = headers.get("User-Agent", headers.get("user-agent", "default_ua"))
+        lang = headers.get("Accept-Language", headers.get("accept-language", "en-US"))
+        sec = headers.get("Sec-Ch-Ua-Platform", headers.get("sec-ch-ua-platform", "mobile"))
+        fwd = headers.get("X-Forwarded-For", headers.get("x-forwarded-for", "ip"))[:15]
+        raw = f"{ua}|{lang}|{sec}|{fwd}"
+    except Exception:
+        raw = "default_prostack_device"
+    return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
 def create_persistent_token(user_dict: dict) -> str:
     payload = json.dumps(user_dict, separators=(",", ":"))
     b64_payload = base64.urlsafe_b64encode(payload.encode()).decode()
@@ -241,6 +260,17 @@ def save_login_session(user_dict: dict):
     st.session_state.user = user_dict
     token = create_persistent_token(user_dict)
     st.query_params["session"] = token
+
+    dev_id = get_device_fingerprint()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("""
+        INSERT OR REPLACE INTO device_sessions (device_id, user_json, updated_at)
+        VALUES (?, ?, ?)
+    """, (dev_id, json.dumps(user_dict), datetime.utcnow().isoformat()))
+    conn.commit()
+    conn.close()
+
     components.html(f"""
     <script>
         try {{
@@ -264,9 +294,29 @@ def load_saved_device_session():
                 return u
     except Exception:
         pass
+    dev_id = get_device_fingerprint()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT user_json FROM device_sessions WHERE device_id=?", (dev_id,))
+    row = c.fetchone()
+    conn.close()
+    if row and row[0]:
+        try:
+            u = json.loads(row[0])
+            st.query_params["session"] = create_persistent_token(u)
+            return u
+        except Exception:
+            pass
     return None
 
 def clear_login_session():
+    dev_id = get_device_fingerprint()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("DELETE FROM device_sessions WHERE device_id=?", (dev_id,))
+    conn.commit()
+    conn.close()
+
     st.session_state.user = None
     st.session_state.admin_unlocked = False
     st.query_params.clear()
@@ -360,13 +410,13 @@ SPORT_CONFIGS = {
     "NFL": {
         "cap": 50000, "size": 9,
         "positions": ["QB", "RB", "WR", "TE", "DST"],
-        "slots": {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "DST": 1}, # + 1 FLEX (RB/WR/TE)
+        "slots": {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "DST": 1},
         "prop_stat": "Pass/Rush/Rec Yds"
     },
     "NBA": {
         "cap": 50000, "size": 8,
         "positions": ["PG", "SG", "SF", "PF", "C"],
-        "slots": {"PG": 1, "SG": 1, "SF": 1, "PF": 1, "C": 1}, # + 3 UTIL
+        "slots": {"PG": 1, "SG": 1, "SF": 1, "PF": 1, "C": 1},
         "prop_stat": "Pts + Reb + Ast (PRA)"
     },
     "MLB": {
@@ -402,7 +452,7 @@ SPORT_CONFIGS = {
     "WNBA": {
         "cap": 50000, "size": 6,
         "positions": ["G", "F"],
-        "slots": {"G": 2, "F": 3}, # + 1 UTIL
+        "slots": {"G": 2, "F": 3},
         "prop_stat": "Points + Assists"
     },
     "Tennis": {
@@ -522,7 +572,7 @@ ALL_SPORT_ROSTERS = {
         ("Arike Ogunbowale", "G", "DAL", "SEA", 8100, 37.8), ("Kahleah Copper", "G", "PHX", "MIN", 7800, 36.2),
         ("Kelsey Mitchell", "G", "IND", "CON", 7500, 34.9), ("Aliyah Boston", "F", "IND", "CON", 7300, 34.1),
         ("Jackie Young", "G", "LVA", "NYL", 7000, 32.5), ("Jonquel Jones", "F", "NYL", "LVA", 6800, 31.8),
-        ("Kayla McBride", "G", "MIN", "PHX", 6400, 29.5), ("angel Reese", "F", "CHI", "WAS", 6600, 31.2),
+        ("Kayla McBride", "G", "MIN", "PHX", 6400, 29.5), ("Angel Reese", "F", "CHI", "WAS", 6600, 31.2),
         ("Rickea Jackson", "F", "LAS", "SEA", 5800, 27.4), ("Lexie Hull", "G", "IND", "CON", 4900, 23.2)
     ],
     "Tennis": [
@@ -569,7 +619,7 @@ def generate_pro_slate(sport: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 # ==========================================
-# 5. TRUE POSITIONAL 10,000x MONTE CARLO & 150-LINEUP MME ENGINE
+# 5. TRUE POSITIONAL + CORRELATION STACKING 150-LINEUP ENGINE
 # ==========================================
 @st.cache_data(show_spinner=False)
 def run_monte_carlo_sims(df: pd.DataFrame, n_sims: int = 10000, weather_boost: float = 0.0) -> pd.DataFrame:
@@ -654,9 +704,9 @@ def generate_positional_mme_lineups(
     effective_cap = max(float(salary_cap), cheapest_possible + 1500.0)
     sorted_all_by_sal = sorted(range(n_players), key=lambda x: salaries[x])
 
-    # Positional minimums when default roster size is active
     slot_reqs = SPORT_CONFIGS.get(sport, {}).get("slots", {})
     use_strict_slots = (eff_size == SPORT_CONFIGS.get(sport, {}).get("size", eff_size))
+    pos_order_map = {p: idx for idx, p in enumerate(SPORT_CONFIGS.get(sport, {}).get("positions", []))}
 
     lineups = []
     seen_signatures = set()
@@ -668,20 +718,56 @@ def generate_positional_mme_lineups(
         best_choice = None
         best_score = -1e9
 
-        for attempt in range(35):
-            noise_scale = 0.08 + (0.0015 * l_idx) + (0.004 * attempt)
+        for attempt in range(45):
+            noise_scale = 0.08 + (0.0018 * l_idx) + (0.005 * attempt)
             noise = rng.uniform(1.0 - noise_scale, 1.0 + noise_scale, size=n_players) if (l_idx > 0 or attempt > 0) else np.ones(n_players)
             scores = base_scores * noise
 
             if stack_team != "None":
-                scores = np.where(teams == stack_team, scores * 1.30, scores)
+                scores = np.where(teams == stack_team, scores * 1.35, scores)
                 if force_bringback:
-                    scores = np.where(opps == stack_team, scores * 1.18, scores)
+                    scores = np.where(opps == stack_team, scores * 1.20, scores)
 
             value_rank = scores / np.power(np.maximum(salaries / 5000.0, 0.5), 0.55)
             chosen = list(locked_indices)
 
-            # 1. Fill required positional minimums first (so NFL always has 1 QB, 2 RB, 3 WR, 1 TE, 1 DST)
+            # 1. Enforce Primary Team Stack & Opposing Bring-Back Player first!
+            if stack_team != "None" and len(chosen) < eff_size:
+                stack_pool = [
+                    i for i in range(n_players)
+                    if teams[i] == stack_team and i not in chosen and (exposure_counts[i] < max_allowed or attempt > 16)
+                ]
+                stack_pool.sort(key=lambda x: value_rank[x], reverse=True)
+                for sp in stack_pool:
+                    if sum(1 for c_i in chosen if teams[c_i] == stack_team) >= stack_count or len(chosen) >= eff_size:
+                        break
+                    if sport == "NFL" and positions[sp] in ("QB", "DST"):
+                        if sum(1 for c_i in chosen if positions[c_i] == positions[sp]) >= 1:
+                            continue
+                    slots_after = eff_size - (len(chosen) + 1)
+                    curr_sal = float(np.sum(salaries[chosen])) + salaries[sp]
+                    min_rem = float(np.sum([salaries[x] for x in sorted_all_by_sal if x not in chosen and x != sp][:slots_after])) if slots_after > 0 else 0.0
+                    if curr_sal + min_rem <= effective_cap:
+                        chosen.append(sp)
+
+                if force_bringback and len(chosen) < eff_size:
+                    bb_pool = [
+                        i for i in range(n_players)
+                        if opps[i] == stack_team and i not in chosen and (exposure_counts[i] < max_allowed or attempt > 16)
+                    ]
+                    bb_pool.sort(key=lambda x: value_rank[x], reverse=True)
+                    for bbp in bb_pool:
+                        if sport == "NFL" and positions[bbp] in ("QB", "DST"):
+                            if sum(1 for c_i in chosen if positions[c_i] == positions[bbp]) >= 1:
+                                continue
+                        slots_after = eff_size - (len(chosen) + 1)
+                        curr_sal = float(np.sum(salaries[chosen])) + salaries[bbp]
+                        min_rem = float(np.sum([salaries[x] for x in sorted_all_by_sal if x not in chosen and x != bbp][:slots_after])) if slots_after > 0 else 0.0
+                        if curr_sal + min_rem <= effective_cap:
+                            chosen.append(bbp)
+                            break
+
+            # 2. Fill required positional minimums (e.g. 1 QB, 2 RB, 3 WR, 1 TE, 1 DST)
             if use_strict_slots:
                 for pos_name, req_cnt in slot_reqs.items():
                     curr_pos_cnt = sum(1 for idx in chosen if positions[idx] == pos_name)
@@ -689,7 +775,7 @@ def generate_positional_mme_lineups(
                     if needed > 0:
                         pos_pool = [
                             i for i in range(n_players)
-                            if positions[i] == pos_name and i not in chosen and (exposure_counts[i] < max_allowed or attempt > 14)
+                            if positions[i] == pos_name and i not in chosen and (exposure_counts[i] < max_allowed or attempt > 16)
                         ]
                         pos_pool.sort(key=lambda x: value_rank[x], reverse=True)
                         for idx in pos_pool:
@@ -702,8 +788,8 @@ def generate_positional_mme_lineups(
                                 chosen.append(idx)
                                 needed -= 1
 
-            # 2. Fill remaining FLEX / UTIL slots respecting salary cap & max 1 QB/DST rule in NFL
-            avail = [i for i in range(n_players) if i not in chosen and (exposure_counts[i] < max_allowed or attempt > 18)]
+            # 3. Fill remaining FLEX / UTIL slots respecting salary cap & max 1 QB/DST rule in NFL
+            avail = [i for i in range(n_players) if i not in chosen and (exposure_counts[i] < max_allowed or attempt > 20)]
             avail.sort(key=lambda x: value_rank[x], reverse=True)
 
             for idx in avail:
@@ -738,8 +824,10 @@ def generate_positional_mme_lineups(
 
         if best_choice is not None:
             seen_signatures.add(tuple(sorted(best_choice)))
-            lineups.append(best_choice)
-            for i in best_choice:
+            # Sort players cleanly by official sport position order
+            best_choice_sorted = sorted(best_choice, key=lambda x: (pos_order_map.get(positions[x], 99), -salaries[x]))
+            lineups.append(best_choice_sorted)
+            for i in best_choice_sorted:
                 exposure_counts[i] += 1
 
     return [active_df.loc[idx_list].copy() for idx_list in lineups]
@@ -756,7 +844,7 @@ with st.sidebar:
     if st.session_state.user is not None:
         u = st.session_state.user
         st.success(f"👤 **{u['email']}**")
-        st.caption("🔒 Persistent Session Active")
+        st.caption("🔒 Permanent Auto-Login Active")
         if u.get("phone"):
             st.caption(f"📱 Phone: `{u['phone']}`")
         if u["is_admin"]:
@@ -1012,7 +1100,6 @@ with tabs[0]:
         player_counts = {}
 
         for idx, ldf in enumerate(built):
-            p_names = ldf["Name"].tolist()
             for pn, ppos, ptm in zip(ldf["Name"], ldf["Position"], ldf["Team"]):
                 key = (pn, ppos, ptm)
                 player_counts[key] = player_counts.get(key, 0) + 1
@@ -1081,7 +1168,7 @@ with tabs[0]:
             st.markdown(f"""
             <div class="quant-card">
                 <h4>🏆 Lineup #{idx+1} — {strategy_mode.split('(')[0]}</h4>
-                <b>💰 Salary:</b> ${tot_sal:,} /${salary_cap:,} &nbsp;|&nbsp;
+                <b>💰 Salary:</b> ${tot_sal:,} / ${salary_cap:,} &nbsp;|&nbsp;
                 <b>📈 Projected:</b> {tot_proj} pts &nbsp;|&nbsp;
                 <b>🚀 90th Ceiling:</b> <span style="color:#00FF88">{tot_ceil} pts</span> &nbsp;|&nbsp;
                 <b>👥 Avg Ownership:</b> {avg_own}%
@@ -1142,7 +1229,6 @@ with tabs[1]:
     </div>
     """, unsafe_allow_html=True)
 
-    # Dynamic Sport-Specific +EV Prop Board
     top6_df = sim_df.sort_values("Ceiling (90%)", ascending=False).head(6).reset_index(drop=True)
     sharp_lines = [(-152, 120, "58.1%", "+3.85%", "🔥 MAX 5-FLEX LOCK"),
                    (-146, 116, "57.3%", "+3.05%", "🔥 MAX 5-FLEX LOCK"),
@@ -1256,7 +1342,7 @@ with tabs[3]:
             st.line_chart(v_df["Cumulative_Profit"])
 
 with tabs[4]:
-    st.subheader("👑 Founder Command Center, VIP Manager & Cloud DB Backup")
+    st.subheader("👑 Founder Command Center, VIP Manager & Cloud DB Backup/Restore")
     if "admin_unlocked" not in st.session_state:
         st.session_state.admin_unlocked = False
     if st.session_state.user and st.session_state.user.get("is_admin"):
@@ -1273,10 +1359,10 @@ with tabs[4]:
                     st.error("Invalid Founder Master Key.")
     else:
         conn = get_conn()
-        users_df = pd.read_sql_query("SELECT email, phone, created_at, trial_until, is_vip, is_admin FROM users", conn)
+        users_df = pd.read_sql_query("SELECT email, phone, password_hash, created_at, trial_until, is_vip, is_admin FROM users", conn)
         conn.close()
         st.metric("👥 Total Registered Users (With Email & Phone)", len(users_df))
-        st.dataframe(users_df, use_container_width=True)
+        st.dataframe(users_df[["email", "phone", "created_at", "trial_until", "is_vip", "is_admin"]], use_container_width=True)
 
         adm_c1, adm_c2, adm_c3 = st.columns(3)
         with adm_c1:
@@ -1299,13 +1385,40 @@ with tabs[4]:
                 st.rerun()
 
         st.divider()
-        st.download_button(
-            "📥 1-Click Download Full User Database Backup (Emails + Phone Numbers JSON)",
-            data=users_df.to_json(orient="records"),
-            file_name="prostack_users_backup.json",
-            mime="application/json",
-            use_container_width=True
-        )
+        col_bk1, col_bk2 = st.columns(2)
+        with col_bk1:
+            st.download_button(
+                "📥 1-Click Download Full User Database Backup (JSON)",
+                data=users_df.to_json(orient="records"),
+                file_name="prostack_users_backup.json",
+                mime="application/json",
+                use_container_width=True
+            )
+        with col_bk2:
+            restore_file = st.file_uploader("📤 Restore Users from Backup JSON", type=["json"])
+            if restore_file is not None:
+                try:
+                    restored_list = json.load(restore_file)
+                    conn = get_conn()
+                    c = conn.cursor()
+                    for item in restored_list:
+                        c.execute("""
+                            INSERT OR REPLACE INTO users (email, phone, password_hash, created_at, trial_until, is_vip, is_admin)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            item.get("email", ""),
+                            item.get("phone", ""),
+                            item.get("password_hash", hash_pw("1234")),
+                            item.get("created_at", datetime.utcnow().isoformat()),
+                            item.get("trial_until", (datetime.utcnow() + timedelta(days=30)).isoformat()),
+                            int(item.get("is_vip", 0)),
+                            int(item.get("is_admin", 0))
+                        ))
+                    conn.commit()
+                    conn.close()
+                    st.success(f"✅ Successfully restored {len(restored_list)} users into Database!")
+                except Exception as ex:
+                    st.error(f"Restore failed: {ex}")
 
 st.markdown(f"""
 <div class="legal-footer">
