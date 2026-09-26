@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import sqlite3
@@ -160,7 +161,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. DATABASE & FACEBOOK-STYLE PERSISTENT LOGIN
+# 3. DATABASE & FACEBOOK-STYLE DEVICE VAULT
 # ==========================================
 DB_FILE = "prostack_enterprise.db"
 
@@ -185,6 +186,15 @@ def init_db():
         c.execute("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''")
     except Exception:
         pass
+
+    # Permanent Device Session Vault (survives full app close/swipe)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS device_sessions (
+            device_id TEXT PRIMARY KEY,
+            user_json TEXT,
+            updated_at TEXT
+        )
+    """)
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS roi_vault (
@@ -216,17 +226,27 @@ def hash_pw(pw: str) -> str:
 def clean_phone(ph: str) -> str:
     return "".join(ch for ch in str(ph).strip() if ch.isdigit() or ch == "+")
 
+def get_device_fingerprint() -> str:
+    """Identifies the user's mobile browser so closing & reopening the app keeps them logged in."""
+    try:
+        headers = st.context.headers
+        ua = headers.get("User-Agent", headers.get("user-agent", "default_ua"))
+        lang = headers.get("Accept-Language", headers.get("accept-language", "en"))
+        sec = headers.get("Sec-Ch-Ua-Platform", headers.get("sec-ch-ua-platform", "mobile"))
+        raw = f"{ua}|{lang}|{sec}"
+    except Exception:
+        raw = "default_prostack_device"
+    return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
 def create_persistent_token(user_dict: dict) -> str:
-    """Creates an encrypted token so switching mobile apps never logs the user out."""
     payload = json.dumps(user_dict, separators=(",", ":"))
     b64_payload = base64.urlsafe_b64encode(payload.encode()).decode()
     sig = hmac.new(SECRET_SIGNING_KEY.encode(), b64_payload.encode(), hashlib.sha256).hexdigest()[:20]
     return f"{b64_payload}.{sig}"
 
 def verify_persistent_token(token_str: str):
-    """Restores user session automatically when returning from another mobile app."""
     try:
-        if "." not in token_str:
+        if not token_str or "." not in token_str:
             return None
         b64_payload, sig = token_str.split(".", 1)
         expected_sig = hmac.new(SECRET_SIGNING_KEY.encode(), b64_payload.encode(), hashlib.sha256).hexdigest()[:20]
@@ -238,15 +258,86 @@ def verify_persistent_token(token_str: str):
         return None
 
 def save_login_session(user_dict: dict):
-    """Saves login in both session_state and persistent URL token."""
+    """Saves login in 3 places: Session State, URL Token, and Permanent SQLite Device Vault."""
     st.session_state.user = user_dict
-    st.query_params["session"] = create_persistent_token(user_dict)
+    token = create_persistent_token(user_dict)
+    st.query_params["session"] = token
+
+    dev_id = get_device_fingerprint()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("""
+        INSERT OR REPLACE INTO device_sessions (device_id, user_json, updated_at)
+        VALUES (?, ?, ?)
+    """, (dev_id, json.dumps(user_dict), datetime.utcnow().isoformat()))
+    conn.commit()
+    conn.close()
+
+    # Also write a 365-day browser cookie + localStorage
+    components.html(f"""
+    <script>
+        try {{
+            document.cookie = "prostack_token={token}; path=/; max-age=31536000; SameSite=Lax";
+            localStorage.setItem("prostack_token", "{token}");
+        }} catch(e) {{}}
+    </script>
+    """, height=0)
+
+def load_saved_device_session():
+    """Restores login even if the user completely closed/cleaned the app and reopened it."""
+    # 1. Check URL token first
+    if "session" in st.query_params:
+        u = verify_persistent_token(st.query_params["session"])
+        if u:
+            return u
+
+    # 2. Check Browser Cookie via st.context.cookies
+    try:
+        cookies = st.context.cookies
+        if cookies and "prostack_token" in cookies:
+            u = verify_persistent_token(cookies["prostack_token"])
+            if u:
+                st.query_params["session"] = cookies["prostack_token"]
+                return u
+    except Exception:
+        pass
+
+    # 3. Check Permanent SQLite Device Vault (Works even after full app close/swipe!)
+    dev_id = get_device_fingerprint()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT user_json FROM device_sessions WHERE device_id=?", (dev_id,))
+    row = c.fetchone()
+    conn.close()
+    if row and row[0]:
+        try:
+            u = json.loads(row[0])
+            st.query_params["session"] = create_persistent_token(u)
+            return u
+        except Exception:
+            pass
+    return None
 
 def clear_login_session():
-    """Logs out completely only when user clicks Log Out."""
+    """Only logs out when the user explicitly clicks Log Out."""
+    dev_id = get_device_fingerprint()
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("DELETE FROM device_sessions WHERE device_id=?", (dev_id,))
+    conn.commit()
+    conn.close()
+
     st.session_state.user = None
     st.session_state.admin_unlocked = False
     st.query_params.clear()
+    components.html("""
+    <script>
+        try {
+            document.cookie = "prostack_token=; path=/; max-age=0";
+            localStorage.removeItem("prostack_token");
+        } catch(e) {}
+    </script>
+    """, height=0)
 
 def register_user(email: str, phone: str, pw: str):
     conn = get_conn()
@@ -315,15 +406,15 @@ def check_vip_active(user_dict) -> bool:
         return False
 
 # ==========================================
-# AUTO-RESTORE SESSION IF USER SWITCHED APPS
+# AUTO-RESTORE SESSION ON STARTUP
 # ==========================================
 if "user" not in st.session_state:
     st.session_state.user = None
 
-if st.session_state.user is None and "session" in st.query_params:
-    restored_user = verify_persistent_token(st.query_params["session"])
-    if restored_user:
-        st.session_state.user = restored_user
+if st.session_state.user is None:
+    restored = load_saved_device_session()
+    if restored:
+        st.session_state.user = restored
 
 # ==========================================
 # 4. 100% AUTHENTIC AMERICAN PRO SLATE DATA
@@ -604,7 +695,7 @@ with st.sidebar:
     if st.session_state.user is not None:
         u = st.session_state.user
         st.success(f"👤 **{u['email']}**")
-        st.caption("🔒 Auto-Login Active (Stays logged in across apps)")
+        st.caption("🔒 Facebook-Style Permanent Login Active")
         if u.get("phone"):
             st.caption(f"📱 Phone: `{u['phone']}`")
         if u["is_admin"]:
