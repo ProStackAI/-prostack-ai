@@ -3,6 +3,9 @@ import pandas as pd
 import numpy as np
 import sqlite3
 import hashlib
+import hmac
+import base64
+import json
 from datetime import datetime, timedelta
 
 # ==========================================
@@ -17,6 +20,7 @@ st.set_page_config(
 
 SUPPORT_TELEGRAM_URL = "https://t.me/ProStackAI_Official"
 APP_PUBLIC_URL = "https://prostackai.streamlit.app"
+SECRET_SIGNING_KEY = "ProStackAI_Persistent_Vault_2026_SecretKey"
 
 # ==========================================
 # 2. BULLETPROOF DARK/LIGHT CSS + HIDE "PRESS ENTER"
@@ -156,7 +160,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. DATABASE & BACKUP ENGINE (EMAIL + PHONE)
+# 3. DATABASE & FACEBOOK-STYLE PERSISTENT LOGIN
 # ==========================================
 DB_FILE = "prostack_enterprise.db"
 
@@ -211,6 +215,38 @@ def hash_pw(pw: str) -> str:
 
 def clean_phone(ph: str) -> str:
     return "".join(ch for ch in str(ph).strip() if ch.isdigit() or ch == "+")
+
+def create_persistent_token(user_dict: dict) -> str:
+    """Creates an encrypted token so switching mobile apps never logs the user out."""
+    payload = json.dumps(user_dict, separators=(",", ":"))
+    b64_payload = base64.urlsafe_b64encode(payload.encode()).decode()
+    sig = hmac.new(SECRET_SIGNING_KEY.encode(), b64_payload.encode(), hashlib.sha256).hexdigest()[:20]
+    return f"{b64_payload}.{sig}"
+
+def verify_persistent_token(token_str: str):
+    """Restores user session automatically when returning from another mobile app."""
+    try:
+        if "." not in token_str:
+            return None
+        b64_payload, sig = token_str.split(".", 1)
+        expected_sig = hmac.new(SECRET_SIGNING_KEY.encode(), b64_payload.encode(), hashlib.sha256).hexdigest()[:20]
+        if not hmac.compare_digest(sig, expected_sig):
+            return None
+        payload = base64.urlsafe_b64decode(b64_payload.encode()).decode()
+        return json.loads(payload)
+    except Exception:
+        return None
+
+def save_login_session(user_dict: dict):
+    """Saves login in both session_state and persistent URL token."""
+    st.session_state.user = user_dict
+    st.query_params["session"] = create_persistent_token(user_dict)
+
+def clear_login_session():
+    """Logs out completely only when user clicks Log Out."""
+    st.session_state.user = None
+    st.session_state.admin_unlocked = False
+    st.query_params.clear()
 
 def register_user(email: str, phone: str, pw: str):
     conn = get_conn()
@@ -279,6 +315,17 @@ def check_vip_active(user_dict) -> bool:
         return False
 
 # ==========================================
+# AUTO-RESTORE SESSION IF USER SWITCHED APPS
+# ==========================================
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+if st.session_state.user is None and "session" in st.query_params:
+    restored_user = verify_persistent_token(st.query_params["session"])
+    if restored_user:
+        st.session_state.user = restored_user
+
+# ==========================================
 # 4. 100% AUTHENTIC AMERICAN PRO SLATE DATA
 # ==========================================
 LEAGUE_CONFIGS = {
@@ -297,7 +344,6 @@ LEAGUE_CONFIGS = {
 @st.cache_data(ttl=3600)
 def generate_pro_slate(league: str) -> pd.DataFrame:
     if league == "NFL":
-        # 100% Authentic NFL Positions, Teams, Opponents, DraftKings Salaries & Realistic Projections
         nfl_data = [
             ("Josh Allen", "QB", "BUF", "KC", 8000, 24.8, 6.2, 22.4),
             ("Patrick Mahomes", "QB", "KC", "BUF", 7600, 22.9, 5.8, 19.5),
@@ -474,7 +520,6 @@ def optimize_lineups_quant(
             chosen = [i for i in active_df.index[active_df["Lock"] == True].tolist() if i < len(active_df)][:eff_size]
 
             if has_nfl_pos and len(chosen) == 0:
-                # Authentic DraftKings 9-man NFL Roster: 1 QB, 2 RB, 3 WR, 1 TE, 1 FLEX (RB/WR/TE), 1 DST
                 qbs = sorted(active_df[active_df["Position"] == "QB"].index.tolist(), key=lambda i: scores[i], reverse=True)
                 dsts = sorted(active_df[active_df["Position"] == "DST"].index.tolist(), key=lambda i: scores[i], reverse=True)
                 rbs = sorted(active_df[active_df["Position"] == "RB"].index.tolist(), key=lambda i: scores[i], reverse=True)
@@ -496,7 +541,6 @@ def optimize_lineups_quant(
                 if dsts: cand.append(dsts[attempt % min(3, len(dsts))])
                 chosen = cand[:9]
 
-                # Strictly enforce Salary Cap <= $50,000 by swapping expensive non-stack player if over cap
                 while int(active_df.loc[chosen, "Salary"].sum()) > salary_cap:
                     swapped = False
                     chosen_sorted = sorted(chosen, key=lambda i: int(active_df.loc[i, "Salary"]), reverse=True)
@@ -551,9 +595,6 @@ def optimize_lineups_quant(
 # ==========================================
 # 6. SIDEBAR: ACCOUNT STATUS & LEAGUE MENU
 # ==========================================
-if "user" not in st.session_state:
-    st.session_state.user = None
-
 with st.sidebar:
     st.markdown("## ⚡ PROSTACK AI PORTAL")
     st.caption("US 🇺🇸 & Canada 🇨🇦 Enterprise Quant Engine")
@@ -563,6 +604,7 @@ with st.sidebar:
     if st.session_state.user is not None:
         u = st.session_state.user
         st.success(f"👤 **{u['email']}**")
+        st.caption("🔒 Auto-Login Active (Stays logged in across apps)")
         if u.get("phone"):
             st.caption(f"📱 Phone: `{u['phone']}`")
         if u["is_admin"]:
@@ -573,7 +615,7 @@ with st.sidebar:
             st.markdown(f"🎁 **VIP Trial Until:** `{u['trial_until'][:10]}`")
 
         if st.button("🚪 Log Out", use_container_width=True, type="primary"):
-            st.session_state.user = None
+            clear_login_session()
             st.rerun()
         st.divider()
 
@@ -619,7 +661,8 @@ if st.session_state.user is None:
                 if "@" in r_email and len(clean_phone(r_phone)) >= 7 and len(r_pw) >= 4:
                     ok, msg = register_user(r_email, r_phone, r_pw)
                     if ok:
-                        st.session_state.user = authenticate_user(r_email, r_pw)
+                        u = authenticate_user(r_email, r_pw)
+                        save_login_session(u)
                         st.success(msg)
                         st.rerun()
                     else:
@@ -636,7 +679,7 @@ if st.session_state.user is None:
             if sub_login:
                 u = authenticate_user(l_ident, l_pw)
                 if u:
-                    st.session_state.user = u
+                    save_login_session(u)
                     st.rerun()
                 else:
                     st.error("Invalid credentials! Forgot your password? Select '🔄 Forgot Password' above.")
@@ -653,7 +696,8 @@ if st.session_state.user is None:
                     ok, msg = reset_user_password(f_email, f_phone, f_new_pw)
                     if ok:
                         st.success(msg)
-                        st.session_state.user = authenticate_user(f_email, f_new_pw)
+                        u = authenticate_user(f_email, f_new_pw)
+                        save_login_session(u)
                         st.rerun()
                     else:
                         st.error(msg)
@@ -667,13 +711,14 @@ if st.session_state.user is None:
             sub_admin = st.form_submit_button("👑 VERIFY & UNLOCK FOUNDER ADMIN")
             if sub_admin:
                 if master_in == "ProStackAdmin2026!":
-                    st.session_state.user = {
+                    admin_u = {
                         "email": "admin@prostackai.com",
                         "phone": "+10000000000",
                         "trial_until": "2036-01-01",
                         "is_vip": True,
                         "is_admin": True
                     }
+                    save_login_session(admin_u)
                     st.rerun()
                 else:
                     st.error("Invalid Founder Master Key.")
